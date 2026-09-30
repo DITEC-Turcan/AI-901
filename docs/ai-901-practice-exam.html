@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI-901 – Praktický test (40 otázok)</title>
+<style>
+  :root {
+    --bg: #0f1218;
+    --panel: #171c25;
+    --panel-2: #1e2531;
+    --line: #2a3344;
+    --txt: #e6eaf2;
+    --muted: #94a1b8;
+    --accent: #4c8dff;
+    --ok: #2ecc71;
+    --ok-bg: rgba(46, 204, 113, .12);
+    --bad: #ff5f6d;
+    --bad-bg: rgba(255, 95, 109, .12);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--txt);
+    font: 15px/1.55 system-ui, "Segoe UI", Roboto, Arial, sans-serif;
+  }
+  header {
+    position: sticky; top: 0; z-index: 10;
+    background: rgba(15, 18, 24, .92);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--line);
+    padding: 14px 20px;
+  }
+  .wrap { max-width: 860px; margin: 0 auto; }
+  h1 { margin: 0 0 4px; font-size: 19px; }
+  .sub { color: var(--muted); font-size: 13px; }
+  .bar {
+    display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+    margin-top: 12px;
+  }
+  button.ctl, .chip {
+    background: var(--panel-2); color: var(--txt);
+    border: 1px solid var(--line); border-radius: 8px;
+    padding: 6px 12px; font-size: 13px; cursor: pointer;
+  }
+  button.ctl:hover, .chip:hover { border-color: var(--accent); }
+  .chip.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .stats { margin-left: auto; font-size: 13px; color: var(--muted); white-space: nowrap; }
+  .stats b { color: var(--txt); }
+  .progress {
+    height: 4px; background: var(--line); border-radius: 4px;
+    margin-top: 10px; overflow: hidden;
+  }
+  .progress > i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .25s; }
+
+  main { max-width: 860px; margin: 0 auto; padding: 22px 20px 80px; }
+  h2.section {
+    font-size: 13px; text-transform: uppercase; letter-spacing: .08em;
+    color: var(--muted); margin: 32px 0 12px; padding-bottom: 8px;
+    border-bottom: 1px solid var(--line);
+  }
+  h2.section:first-child { margin-top: 0; }
+
+  .q {
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: 12px; padding: 16px 18px; margin-bottom: 14px;
+  }
+  .q-head { display: flex; gap: 10px; align-items: baseline; margin-bottom: 12px; }
+  .num {
+    flex: none; width: 26px; height: 26px; border-radius: 50%;
+    background: var(--panel-2); border: 1px solid var(--line);
+    display: grid; place-items: center; font-size: 12px; color: var(--muted);
+  }
+  .q.done .num { border-color: transparent; color: #fff; }
+  .q.right .num { background: var(--ok); }
+  .q.wrong .num { background: var(--bad); }
+  .q-text { font-weight: 600; }
+  .hint { display: block; font-weight: 400; font-size: 12px; color: var(--accent); margin-top: 3px; }
+
+  .opt {
+    display: flex; gap: 10px; align-items: flex-start;
+    border: 1px solid var(--line); border-radius: 9px;
+    padding: 9px 12px; margin-bottom: 7px; cursor: pointer;
+    background: var(--panel-2); transition: border-color .15s, background .15s;
+  }
+  .opt:hover:not(.locked) { border-color: var(--accent); }
+  .opt.locked { cursor: default; }
+  .letter { flex: none; font-weight: 700; color: var(--muted); width: 16px; }
+  .opt.sel { border-color: var(--accent); }
+  .opt.ok { border-color: var(--ok); background: var(--ok-bg); }
+  .opt.ok .letter { color: var(--ok); }
+  .opt.bad { border-color: var(--bad); background: var(--bad-bg); }
+  .opt.bad .letter { color: var(--bad); }
+  .mark { margin-left: auto; font-weight: 700; }
+  .opt.ok .mark { color: var(--ok); }
+  .opt.bad .mark { color: var(--bad); }
+
+  .explain {
+    display: none; margin-top: 12px; padding: 11px 14px;
+    border-left: 3px solid var(--accent); border-radius: 0 8px 8px 0;
+    background: rgba(76, 141, 255, .08); font-size: 14px;
+  }
+  .q.done .explain { display: block; }
+  .verdict { font-weight: 700; margin-right: 6px; }
+  .q.right .verdict { color: var(--ok); }
+  .q.wrong .verdict { color: var(--bad); }
+
+  code { background: #0b0e14; padding: 1px 5px; border-radius: 4px; font-size: 13px; }
+  .hidden { display: none !important; }
+  footer { max-width: 860px; margin: 0 auto; padding: 0 20px 40px; color: var(--muted); font-size: 12px; }
+  footer a { color: var(--accent); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <h1>AI-901: Microsoft Azure AI Fundamentals – praktický test</h1>
+    <div class="sub">40 otázok · okamžité vyhodnotenie po kliknutí · vysvetlenie pri každej odpovedi</div>
+    <div class="bar">
+      <button class="chip active" data-sec="all">Všetko</button>
+      <button class="chip" data-sec="1">Responsible AI</button>
+      <button class="chip" data-sec="2">AI concepts &amp; workloads</button>
+      <button class="chip" data-sec="3">Foundry &amp; SDK</button>
+      <button class="ctl" id="shuffle">Zamiešať</button>
+      <button class="ctl" id="reset">Reset</button>
+      <div class="stats">Správne <b id="sOk">0</b> / <b id="sDone">0</b> · zostáva <b id="sLeft">40</b></div>
+    </div>
+    <div class="progress"><i id="bar"></i></div>
+  </div>
+</header>
+
+<main id="quiz"></main>
+
+<footer>
+  Otázky sú vlastné cvičné otázky podľa zverejneného <i>skills outline</i> pre AI-901, nie reálne skúškové položky.
+  Predloha: <a href="https://www.histack.net/p/ai-901-free-practice-exam-assessment" target="_blank" rel="noopener">histack.net</a>.
+</footer>
+
+<script>
+const SECTIONS = {
+  1: "Sekcia 1 · Responsible AI (1–8)",
+  2: "Sekcia 2 · AI concepts and workloads (9–30)",
+  3: "Sekcia 3 · Microsoft Foundry: SDK, prompts a služby (31–40)"
+};
+
+const QUESTIONS = [
+/* ---------- Section 1: Responsible AI ---------- */
+{ s:1, q:"A hiring model recommends noticeably fewer qualified candidates from one region than from others with identical qualifications. Which Microsoft responsible AI principle is most at risk?",
+  o:["Reliability and safety","Fairness","Transparency","Inclusiveness"], a:[1],
+  e:"Rozdielne výsledky pre rovnako kvalifikovaných ľudí podľa regiónu = systematické zaujatie (bias). To spadá pod princíp <b>Fairness</b> – model má zaobchádzať so všetkými skupinami rovnako." },
+
+{ s:1, q:"A bank must be able to explain to a rejected applicant why the AI declined their loan. Which principle does this support?",
+  o:["Accountability","Privacy and security","Transparency","Fairness"], a:[2],
+  e:"<b>Transparency</b> znamená zrozumiteľnosť a vysvetliteľnosť rozhodnutí modelu. Accountability je o tom, <i>kto</i> nesie zodpovednosť, nie o vysvetlení konkrétneho rozhodnutia." },
+
+{ s:1, q:"Two review teams assess the same model. Team A finds it performs worse for older users. Team B finds that no one can explain how it reaches a decision. Which principles did Team A and Team B identify, in that order?",
+  o:["Transparency, then Fairness","Fairness, then Transparency","Fairness, then Accountability","Inclusiveness, then Transparency"], a:[1],
+  e:"Horší výkon pre vekovú skupinu = <b>Fairness</b>. Nevysvetliteľné rozhodovanie = <b>Transparency</b>. Poradie teda Fairness → Transparency." },
+
+{ s:1, q:"A customer service chatbot must refuse harmful requests and behave predictably even with unexpected input. Which principle applies, and which Azure capability most directly supports it?",
+  o:["Privacy and security (managed identities)","Reliability and safety (content filters and model evaluation)","Transparency (model cards)","Accountability (audit logs)"], a:[1],
+  e:"Predvídateľné a bezpečné správanie aj pri neočakávanom vstupe = <b>Reliability and safety</b>. V Azure to podporujú <i>content filters</i> (Azure AI Content Safety) a vyhodnocovanie modelu." },
+
+{ s:1, q:"A solution must keep customer personal data protected and let services authenticate without secrets stored in code. Which principle and feature best fit?",
+  o:["Inclusiveness","Fairness","Privacy and security","Transparency"], a:[2],
+  e:"Ochrana osobných údajov + autentifikácia bez kľúčov v kóde (managed identity / Entra ID) = <b>Privacy and security</b>." },
+
+{ s:1, q:"A team adds captions, screen reader support, and multiple languages so their app works for people of all abilities and backgrounds. Which principle is this an example of?",
+  o:["Inclusiveness","Accountability","Reliability and safety","Fairness"], a:[0],
+  e:"Prístupnosť a podpora rôznych schopností a jazykov = <b>Inclusiveness</b>. Fairness sa týka nezaujatých výstupov modelu, nie dostupnosti aplikácie." },
+
+{ s:1, q:"An organization keeps an auditable record of AI decisions and assigns a named human owner who is answerable for outcomes. Which principle does this reflect?",
+  o:["Transparency","Accountability","Privacy and security","Reliability and safety"], a:[1],
+  e:"<b>Accountability</b> = ľudia (nie systém) nesú zodpovednosť za výsledky; audit log a menovaný vlastník sú typické opatrenia." },
+
+{ s:1, q:"(Vyber DVE.) Which two are ways Microsoft helps you apply responsible AI to a generative model?",
+  o:["Configure content filters on the model deployment","Increase <code>max_tokens</code> to reduce hallucination","Review the model card for capabilities and limitations","Set <code>temperature</code> to 1 for higher accuracy","Store the API key in the application source code"], a:[0,2],
+  e:"<b>Content filters</b> na deploymente blokujú škodlivý obsah, <b>model card</b> dokumentuje schopnosti a limity modelu. <code>max_tokens</code> mení len dĺžku odpovede, vyššia <code>temperature</code> zvyšuje náhodnosť a kľúč v kóde je bezpečnostná chyba." },
+
+/* ---------- Section 2: AI concepts and workloads ---------- */
+{ s:2, q:"A voice assistant must read the day's weather aloud in a natural sounding voice. Which capability of Azure Speech is required?",
+  o:["Speech recognition","Speech synthesis","Speech translation","Language detection"], a:[1],
+  e:"Text → hovorené slovo je <b>speech synthesis</b> (text to speech). Speech recognition je opačný smer." },
+
+{ s:2, q:"In Microsoft Foundry, which statement correctly describes hubs and projects?",
+  o:["A project contains many hubs","Hubs and projects are the same thing","A hub is a top level container for governance, security, and quota, and a project lives inside it where you build","A hub is only for billing"], a:[2],
+  e:"<b>Hub</b> je nadradený kontajner – zdieľané prostriedky, zabezpečenie, kvóty, správa. <b>Project</b> je pracovný priestor vo vnútri hubu, kde sa reálne vyvíja." },
+
+{ s:2, q:"You must automatically pull out and categorize people, organizations, dates, and locations across thousands of contracts. Which Azure Language capability fits best?",
+  o:["Sentiment analysis","Named entity recognition","Key phrase extraction","Language detection"], a:[1],
+  e:"Rozpoznanie a zatriedenie entít (osoba, organizácia, dátum, miesto) = <b>Named entity recognition</b>. Key phrase extraction vracia len dôležité frázy bez kategórií." },
+
+{ s:2, q:"A team needs a fast, low cost model for high volume, simple chat replies, and does not need advanced reasoning. Which choice best balances cost and capability?",
+  o:["GPT-4o","An embedding model","GPT-4o-mini","A Document Intelligence prebuilt"], a:[2],
+  e:"Malé modely ako <b>GPT-4o-mini</b> sú lacnejšie a rýchlejšie; pre jednoduché odpovede vo veľkom objeme sú ideálne." },
+
+{ s:2, q:"A call centre needs to turn recorded customer calls into searchable text transcripts. Which capability do you need?",
+  o:["Text to speech","Speech synthesis","Speech to text","Key phrase extraction"], a:[2],
+  e:"Prepis nahrávok na text = <b>speech to text</b> (speech recognition). Text to speech aj speech synthesis sú to isté, opačným smerom." },
+
+{ s:2, q:"You want to browse available models, read a model's capabilities and limits, then deploy one. In the Foundry portal, which order of areas do you use?",
+  o:["Model catalog, then Model card, then Deployments","Playground, then Agents, then Evaluation","Deployments, then Model catalog, then Playground","Agents, then Evaluation, then Model catalog"], a:[0],
+  e:"Prirodzený tok v portáli: prehliadaš <b>Model catalog</b> → otvoríš <b>Model card</b> s popisom a limitmi → model nasadíš cez <b>Deployments</b>." },
+
+{ s:2, q:"A company must automatically detect and redact personal information, such as names, phone numbers, and email addresses, from customer support transcripts before storing them. Which Azure Language capability should they use?",
+  o:["Key phrase extraction","PII detection","Sentiment analysis","Named entity recognition"], a:[1],
+  e:"<b>PII detection</b> je špecializovaná funkcia, ktorá osobné údaje nielen nájde, ale ich vie aj maskovať (redact). NER entity nájde, ale nerieši redakciu." },
+
+{ s:2, q:"You are building an app that extracts structured fields, including nested values, from invoices, images, and short audio notes, using a schema you describe in natural language. What should you use?",
+  o:["An OCR only document pipeline","A transcription workflow in Azure Speech in Foundry Tools","An analyzer in Azure Content Understanding","Azure AI Search"], a:[2],
+  e:"<b>Content Understanding</b> je multimodálne (dokumenty, obrázky, audio, video) a schému polí definuješ prirodzeným jazykom. OCR ani prepis reči nevracajú štruktúrované vnorené polia." },
+
+{ s:2, q:"A brand wants to know whether social posts about its product are positive, negative, or neutral. Which text analysis technique applies?",
+  o:["Summarization","Entity recognition","Sentiment analysis","Translation"], a:[2],
+  e:"Klasifikácia tónu textu na pozitívny / negatívny / neutrálny = <b>sentiment analysis</b>." },
+
+{ s:2, q:"When you deploy a model in Foundry, which setting controls how many tokens per minute the deployment can handle, and therefore affects throughput and cost?",
+  o:["Temperature","The system prompt","The endpoint name","Capacity"], a:[3],
+  e:"<b>Capacity</b> (TPM – tokens per minute) určuje priepustnosť a kvótu deploymentu. Temperature ovplyvňuje len náhodnosť výstupu." },
+
+{ s:2, q:"(Vyber DVE.) Which two are text analysis capabilities of Azure Language?",
+  o:["Named entity recognition","Text to speech","Sentiment analysis","Image generation","Optical character recognition of scanned forms"], a:[0,2],
+  e:"Azure <b>Language</b> pokrýva prácu s textom: NER, sentiment, key phrases, PII, summarization, jazyk. Text to speech patrí pod Speech, OCR pod Vision / Document Intelligence, generovanie obrázkov pod modely ako DALL·E." },
+
+{ s:2, q:"You only need to extract fields from a known, standard form type (supplier invoices) with high, deterministic accuracy. Which is most appropriate?",
+  o:["A custom Content Understanding analyzer","A Document Intelligence prebuilt model","A multimodal chat model","Azure AI Search"], a:[1],
+  e:"Pre štandardné typy dokumentov (faktúry, účtenky, ID, W-2) existujú <b>prebuilt modely v Document Intelligence</b> – netreba trénovať ani definovať schému." },
+
+{ s:2, q:"You just need the raw printed and handwritten text extracted from scanned pages, with no schema and no field mapping. Which capability fits?",
+  o:["OCR","Sentiment analysis","Text to speech","Key phrase extraction"], a:[0],
+  e:"Čisté vyťaženie textu (tlačeného aj ručne písaného) bez mapovania polí = <b>OCR / Read</b>." },
+
+{ s:2, q:"You deployed a gpt-4o model under the deployment name <code>prod-chat</code>. In your client code, which value do you pass as the model to call it?",
+  o:["gpt-4o, the base model name","The resource endpoint URL","<code>prod-chat</code>, the deployment name","The Azure region"], a:[2],
+  e:"V Azure sa volá <b>deployment name</b>, nie názov základného modelu. Ten istý model môže mať viacero deploymentov s rôznymi kvótami a filtrami." },
+
+{ s:2, q:"An app should accept a photo and answer free form questions about it, for example “what is unusual here?”. What is the best fit?",
+  o:["An OCR algorithm","A deployed multimodal model","Key phrase extraction","Speech synthesis"], a:[1],
+  e:"Voľné otázky nad obrázkom zvládne len <b>multimodálny model</b> (napr. GPT-4o), ktorý spracuje obraz aj text. OCR len prepíše text z obrázka." },
+
+{ s:2, q:"You need to extract fields from a document type that is unique to your company and is not a standard form. Which Content Understanding option fits?",
+  o:["A prebuilt analyzer","Read (OCR)","Speech to text","A custom analyzer"], a:[3],
+  e:"Pre neštandardný, firemne špecifický dokument si vytvoríš <b>custom analyzer</b> s vlastnou schémou polí. Prebuilt pokrýva len bežné typy." },
+
+{ s:2, q:"A marketing team wants to generate brand new images from text descriptions. Which model type do they need?",
+  o:["An embedding model","DALL·E","A speech model","A Document Intelligence prebuilt"], a:[1],
+  e:"Generovanie obrázkov z textu = image generation model, v Azure OpenAI napr. <b>DALL·E</b>. Embedding model vracia vektory, nie obrázky." },
+
+{ s:2, q:"Before writing any code, where in the Foundry portal can you interactively test a deployed model with different prompts?",
+  o:["The Evaluation tab","The Playground","The Model catalog","The Hub settings"], a:[1],
+  e:"<b>Playground</b> slúži na interaktívne skúšanie promptov a parametrov bez písania kódu. Evaluation je na systematické meranie kvality na dátovej sade." },
+
+{ s:2, q:"In a generative AI model, what are embeddings?",
+  o:["The maximum length of a response","Numeric vector representations","The system prompt rules","The deployment region"], a:[1],
+  e:"<b>Embeddings</b> sú číselné vektory zachytávajúce sémantický význam textu. Používajú sa na vyhľadávanie podľa podobnosti, napr. v RAG." },
+
+{ s:2, q:"(Vyber DVE.) What are two purposes of the system prompt (the instructions) for a generative model?",
+  o:["Define the model's role and behaviour","Select which model to deploy","Define constraints on the model's responses","Set the tokens per minute quota","Define the user question and intent"], a:[0,2],
+  e:"System prompt určuje <b>rolu a správanie</b> modelu a <b>obmedzenia</b> jeho odpovedí (tón, formát, čo nesmie). Konkrétnu otázku prináša user prompt; výber modelu a kvóta sú nastavenia deploymentu." },
+
+{ s:2, q:"A chatbot keeps giving outdated answers about your company's internal policies. Which technique most directly improves accuracy by supplying your own data at query time?",
+  o:["Increasing temperature","Fine tuning the base model from scratch","Grounding the model with retrieval (RAG)","Raising <code>max_tokens</code>"], a:[2],
+  e:"<b>RAG</b> (grounding) doplní do promptu relevantné úryvky z tvojich dát pri každej otázke – aktuálne a bez pretrénovania modelu." },
+
+{ s:2, q:"(Vyber DVE.) Which two factors make a smaller model such as GPT-4o-mini a good choice for a task?",
+  o:["Lower cost","Lower latency","It always produces more accurate answers","It is required for responsible AI","It supports more languages than larger models"], a:[0,1],
+  e:"Menšie modely = <b>nižšia cena</b> a <b>nižšia latencia</b>. Presnosť pri zložitých úlohách je naopak spravidla nižšia než u veľkých modelov." },
+
+/* ---------- Section 3: Foundry SDK ---------- */
+{ s:3, q:"You are writing a Python app that uses Azure Speech in Foundry Tools. Which object holds the credentials and the service region so the speech service can be called?",
+  o:["AudioConfig","SpeechRecognizer","SpeechConfig","AIProjectClient"], a:[2],
+  e:"<b>SpeechConfig</b> nesie prihlasovacie údaje (kľúč/credential) a región služby. AudioConfig rieši zdroj/cieľ zvuku." },
+
+{ s:3, q:"In the Azure Speech SDK, which object specifies where the audio comes from or goes to, for example the microphone or an audio file?",
+  o:["SpeechConfig","AudioConfig","SpeechSynthesizer","DefaultAzureCredential"], a:[1],
+  e:"<b>AudioConfig</b> definuje vstup/výstup zvuku – mikrofón, reproduktor alebo súbor." },
+
+{ s:3, q:"You want your app to convert spoken audio into text. After creating a SpeechConfig, which object do you create to perform the transcription?",
+  o:["SpeechSynthesizer","A Content Understanding analyzer","An image analyzer","SpeechRecognizer"], a:[3],
+  e:"Reč → text robí <b>SpeechRecognizer</b>. <code>SpeechSynthesizer</code> je opačný smer (text → reč)." },
+
+{ s:3, q:"In the Foundry SDK, what is the recommended way to authenticate from your code without putting keys in the source?",
+  o:["Use DefaultAzureCredential with Microsoft Entra ID","Hard code the API key in a variable","Store the key in the system prompt","Pass the key as the model name"], a:[0],
+  e:"<b>DefaultAzureCredential</b> (Entra ID / managed identity) je odporúčaný bezkľúčový spôsob – funguje lokálne aj v Azure bez tajomstiev v kóde." },
+
+{ s:3, q:"You are initializing the Foundry project client in Python. The Azure AI resource (account) is Resource1, the project is project1, and the model gpt-4o is deployed under the name my-mini-gpt. Which URL is the correct endpoint, the base URL you pass to the client?",
+  o:["https://project1.services.ai.azure.com","https://my-mini-gpt.services.ai.azure.com","https://resource1.services.ai.azure.com/api/projects/project1","https://gpt-4o.openai.azure.com"], a:[2],
+  e:"Formát je <code>https://&lt;resource&gt;.services.ai.azure.com/api/projects/&lt;project&gt;</code> – hostiteľ obsahuje názov <b>resource</b>, cesta názov <b>projektu</b>. Názov deploymentu ani modelu v endpointe nie je." },
+
+{ s:3, q:"You need a GPT model to hold a back and forth conversation and return text responses to user messages. Which capability do you call?",
+  o:["The embeddings API","The chat completions API","The image generation API","Speech synthesis"], a:[1],
+  e:"Konverzácia s históriou správ (system/user/assistant) sa rieši cez <b>chat completions API</b>." },
+
+{ s:3, q:"In the Foundry SDK, which method do you call on the OpenAI client to generate a chat completion from a deployed model?",
+  o:["client.completions.generate(...)","client.chat.run(...)","client.models.invoke(...)","client.chat.completions.create(...)"], a:[3],
+  e:"Správne volanie je <code>client.chat.completions.create(model=&quot;&lt;deployment&gt;&quot;, messages=[...])</code>. Ostatné metódy neexistujú." },
+
+{ s:3, q:"(Vyber DVE.) When you configure Azure Speech in Foundry Tools in code, which two values do you typically set on the SpeechConfig?",
+  o:["The service region","The subscription key or credential","The deployment name of a GPT model","The number of agent threads","The Azure resource group"], a:[0,1],
+  e:"SpeechConfig potrebuje <b>región</b> a <b>kľúč/credential</b>. Deployment GPT modelu ani resource group sa sem nezadávajú." },
+
+{ s:3, q:"When should you use an agent instead of a single chat completion call?",
+  o:["When you need one stateless answer","When you only need to translate text","When you need tools, state across turns, or multi step actions","When you want lower cost for a single reply"], a:[2],
+  e:"<b>Agent</b> má prístup k nástrojom (tools), udržiava stav naprieč ťahmi a vie vykonať viackrokový postup. Pre jednu bezstavovú odpoveď stačí chat completion." },
+
+{ s:3, q:"You need a deployed model to give consistent, repeatable answers for the same input. Which setting should you adjust?",
+  o:["Set temperature to its maximum","Set a low temperature","Increase <code>max_tokens</code>","Change the deployment name"], a:[1],
+  e:"<b>Nízka temperature</b> (napr. 0) znižuje náhodnosť, takže rovnaký vstup dáva konzistentné odpovede. Vysoká temperature zvyšuje kreativitu a rozptyl." }
+];
+
+const LETTERS = "ABCDE";
+const quizEl = document.getElementById("quiz");
+let order = QUESTIONS.map((_, i) => i);
+let filter = "all";
+let shuffled = false;
+let state = {};   // index -> {picked:[], right:bool}
+
+function render() {
+  quizEl.innerHTML = "";
+  let lastSec = null;
+  const visible = order.filter(i => filter === "all" || QUESTIONS[i].s === +filter);
+
+  visible.forEach((idx, pos) => {
+    const q = QUESTIONS[idx];
+    if (filter === "all" && !shuffled && q.s !== lastSec) {
+      lastSec = q.s;
+      const h = document.createElement("h2");
+      h.className = "section";
+      h.textContent = SECTIONS[q.s];
+      quizEl.appendChild(h);
+    }
+    quizEl.appendChild(buildCard(q, idx, pos + 1));
+  });
+  updateStats();
+}
+
+function buildCard(q, idx, displayNo) {
+  const multi = q.a.length > 1;
+  const card = document.createElement("article");
+  card.className = "q";
+  card.dataset.idx = idx;
+
+  const head = document.createElement("div");
+  head.className = "q-head";
+  head.innerHTML = `<div class="num">${displayNo}</div>
+    <div class="q-text">${q.q}${multi ? '<span class="hint">Vyber 2 odpovede – vyhodnotí sa po druhom kliknutí.</span>' : ''}</div>`;
+  card.appendChild(head);
+
+  q.o.forEach((text, oi) => {
+    const opt = document.createElement("div");
+    opt.className = "opt";
+    opt.dataset.oi = oi;
+    opt.innerHTML = `<span class="letter">${LETTERS[oi]}</span><span>${text}</span><span class="mark"></span>`;
+    opt.addEventListener("click", () => pick(card, q, idx, oi));
+    card.appendChild(opt);
+  });
+
+  const exp = document.createElement("div");
+  exp.className = "explain";
+  const correct = q.a.map(i => LETTERS[i]).join(" + ");
+  exp.innerHTML = `<div><span class="verdict"></span>Správna odpoveď: <b>${correct}</b></div><div style="margin-top:6px">${q.e}</div>`;
+  card.appendChild(exp);
+
+  const st = state[idx];
+  if (st) applyResult(card, q, st);
+  return card;
+}
+
+function pick(card, q, idx, oi) {
+  if (state[idx]) return;                       // už vyhodnotené
+  const multi = q.a.length > 1;
+  const optEl = card.querySelector(`.opt[data-oi="${oi}"]`);
+
+  if (!multi) {
+    finish(card, q, idx, [oi]);
+    return;
+  }
+
+  optEl.classList.toggle("sel");
+  const picked = [...card.querySelectorAll(".opt.sel")].map(e => +e.dataset.oi);
+  if (picked.length === q.a.length) finish(card, q, idx, picked);
+}
+
+function finish(card, q, idx, picked) {
+  const right = picked.length === q.a.length && picked.every(p => q.a.includes(p));
+  state[idx] = { picked, right };
+  applyResult(card, q, state[idx]);
+  updateStats();
+}
+
+function applyResult(card, q, st) {
+  card.classList.add("done", st.right ? "right" : "wrong");
+  card.querySelectorAll(".opt").forEach(el => {
+    const oi = +el.dataset.oi;
+    el.classList.remove("sel");
+    el.classList.add("locked");
+    const mark = el.querySelector(".mark");
+    if (q.a.includes(oi)) { el.classList.add("ok"); mark.textContent = "✓"; }
+    else if (st.picked.includes(oi)) { el.classList.add("bad"); mark.textContent = "✗"; }
+  });
+  card.querySelector(".verdict").textContent = st.right ? "Správne." : "Nesprávne.";
+}
+
+function updateStats() {
+  const done = Object.keys(state).length;
+  const ok = Object.values(state).filter(s => s.right).length;
+  document.getElementById("sOk").textContent = ok;
+  document.getElementById("sDone").textContent = done;
+  document.getElementById("sLeft").textContent = QUESTIONS.length - done;
+  document.getElementById("bar").style.width = (done / QUESTIONS.length * 100) + "%";
+}
+
+document.querySelectorAll(".chip").forEach(chip => {
+  chip.addEventListener("click", () => {
+    document.querySelectorAll(".chip").forEach(c => c.classList.remove("active"));
+    chip.classList.add("active");
+    filter = chip.dataset.sec;
+    render();
+    window.scrollTo({ top: 0 });
+  });
+});
+
+document.getElementById("shuffle").addEventListener("click", () => {
+  for (let i = order.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [order[i], order[j]] = [order[j], order[i]];
+  }
+  shuffled = true;
+  filter = "all";
+  document.querySelectorAll(".chip").forEach(c => c.classList.toggle("active", c.dataset.sec === "all"));
+  render();
+  window.scrollTo({ top: 0 });
+});
+
+document.getElementById("reset").addEventListener("click", () => {
+  state = {};
+  order = QUESTIONS.map((_, i) => i);
+  shuffled = false;
+  render();
+  window.scrollTo({ top: 0 });
+});
+
+render();
+</script>
+</body>
+</html>
