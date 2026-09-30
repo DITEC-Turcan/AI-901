@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="sk">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>AI-901 — dokumentácia demo príkladov</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <header class="page">
+        <div class="wrap">
+            <h1>AI-901 — dokumentácia demo príkladov</h1>
+            <p>Čo presne robia Python skripty v tomto repozitári a ako súvisia so skúškou
+                <em>Microsoft Azure AI Fundamentals (AI-901)</em>.
+            </p>
+        </div>
+    </header>
+
+    <div class="wrap">
+
+        <h2>Ako použiť túto dokumentáciu</h2>
+        <p>
+            Každý adresár <code>lessonX-Y</code> obsahuje jeden malý, samostatne spustiteľný Python skript, ktorý
+            demonštruje jednu skupinu schopností Azure AI / Microsoft Foundry. Pre každý z nich existuje
+            samostatná stránka s rozborom kódu riadok po riadku, so sekciou
+            <strong>„Čo z toho treba na skúšku“</strong> a s <strong>cvičnými otázkami</strong> vo formáte skúšky
+            (výber z možností, odpoveď s vysvetlením sa odkryje kliknutím).
+        </p>
+        <p>
+            Skúška AI-901 nie je o písaní kódu spamäti, ale o tom, že <em>rozumieš, ktorá služba rieši ktorý problém</em>,
+            <em>aký je tok volania</em> a <em>čo znamenajú kľúčové parametre</em>. Sekcie označené fialovou farbou
+            presne toto zvýrazňujú.
+        </p>
+
+        <div class="box">
+            <strong class="label">Prichádzaš z C#?</strong>
+            <p>
+                Začni stránkou <a href="python-pre-csharp.html"><strong>Python pre C# programátora</strong></a> —
+                prekladá do C# každú konštrukciu, ktorá sa v týchto skriptoch vyskytuje (odsadenie namiesto zátvoriek,
+                slovníky namiesto anonymných objektov, <code>**kwargs</code>, truthiness, <code>with</code> vs.
+                <code>using</code>, poller vs. <code>Operation&lt;T&gt;</code>).
+            </p>
+        </div>
+
+        <h2>Rozpis skúšky (platný od 15. apríla 2026)</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Doména</th>
+                    <th>Váha</th>
+                    <th>Pokrytá týmito demami</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Identify AI concepts and capabilities<br><span style="color:#5b5b66">(zodpovedná AI, komponenty
+                            modelov, typy AI workloadov)</span></td>
+                    <td>40–45 %</td>
+                    <td>teoretická časť — demá ju ilustrujú, ale neučia priamo</td>
+                </tr>
+                <tr>
+                    <td>Implement AI solutions by using Microsoft Foundry<br><span style="color:#5b5b66">(generatívna AI
+                            a agenti, text a reč, computer vision, extrakcia informácií)</span></td>
+                    <td>55–60 %</td>
+                    <td>všetkých 6 dem</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div class="box">
+            <strong class="label">Dôležité</strong>
+            <p>
+                Podľa oficiálneho study guide sa otázky týkajú prevažne <strong>GA funkcií</strong> a od kandidáta sa
+                očakáva, že pozná <strong>Python syntax</strong> a vie sa zorientovať v <strong>REST API, SDK a
+                    CLI</strong>. Práve preto sú tieto demá napísané ako „lightweight client applications“ — presne tým
+                termínom, ktorý používa rozpis skúšky.
+            </p>
+        </div>
+
+        <h2>Prehľad dem</h2>
+        <div class="cards">
+            <a class="card" href="python-pre-csharp.html">
+                <h3>Python pre C# programátora</h3>
+                <p>Syntax týchto skriptov preložená do C#. Prečítaj si to ako prvé, ak Python nie je tvoj jazyk.</p>
+                <span class="tag">syntax</span><span class="tag">SDK mapovanie</span>
+            </a>
+            <a class="card" href="lesson4-2.html">
+                <h3>lesson4-2 — Chat klient k modelu</h3>
+                <p>Priame volanie nasadeného modelu cez OpenAI-kompatibilné API, história konverzácie na strane
+                    klienta.</p>
+                <span class="tag">openai SDK</span><span class="tag">API key</span>
+            </a>
+            <a class="card" href="lesson4-4.html">
+                <h3>lesson4-4 — Chat klient k agentovi</h3>
+                <p>Volanie publikovaného Foundry agenta cez Responses API, stav konverzácie drží služba.</p>
+                <span class="tag">azure-ai-projects</span><span class="tag">Entra ID</span>
+            </a>
+            <a class="card" href="lesson5-1.html">
+                <h3>lesson5-1 — Analýza textu</h3>
+                <p>Sumarizácia, rozpoznávanie entít (NER) a extrakcia kľúčových fráz nad jedným článkom.</p>
+                <span class="tag">azure-ai-textanalytics</span><span class="tag">Azure AI Language</span>
+            </a>
+            <a class="card" href="lesson5-3.html">
+                <h3>lesson5-3 — Prepis reči naživo</h3>
+                <p>Kontinuálne rozpoznávanie reči z mikrofónu, priebežné aj finálne výsledky.</p>
+                <span class="tag">Speech SDK</span><span class="tag">speech-to-text</span>
+            </a>
+            <a class="card" href="lesson6-3.html">
+                <h3>lesson6-3 — Computer vision</h3>
+                <p>Caption + tagy, detekcia objektov s bounding boxmi a OCR nad tromi obrázkami.</p>
+                <span class="tag">Image Analysis 4.0</span><span class="tag">VisualFeatures</span>
+            </a>
+            <a class="card" href="lesson7-4.html">
+                <h3>lesson7-4 — Content Understanding</h3>
+                <p>Extrakcia polí z faktúr (PDF aj obrázok) a sumarizácia zvukovej nahrávky.</p>
+                <span class="tag">prebuilt analyzers</span><span class="tag">long-running operation</span>
+            </a>
+        </div>
+
+        <h2>Spoločné vzory vo všetkých skriptoch</h2>
+        <p>
+            Všetkých šesť skriptov je napísaných podľa rovnakej kostry. Ak ju pochopíš raz, každé ďalšie demo je už len
+            výmena SDK a metódy.
+        </p>
+        <pre><code>load_config()      # načíta config.env cez python-dotenv, ak chýba → ukončí sa
+get_required(key)  # prečíta povinnú premennú, ak chýba → zrozumiteľná chyba
+build_client()     # zostaví klienta: endpoint + credential (+ verzia API / model)
+&lt;volanie služby&gt;   # jedna alebo viac metód SDK
+&lt;výpis výsledku&gt;   # čitateľný výstup do konzoly</code></pre>
+
+        <h3>Dva spôsoby autentifikácie, ktoré sa opakujú</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Spôsob</th>
+                    <th>Kód</th>
+                    <th>Použité v</th>
+                    <th>Kedy</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Kľúč (API key)</td>
+                    <td><code>AzureKeyCredential(key)</code>, resp. <code>api_key=</code></td>
+                    <td>4-2, 5-1, 5-3, 6-3, 7-4</td>
+                    <td>rýchly štart, demo, testy</td>
+                </tr>
+                <tr>
+                    <td>Microsoft Entra ID</td>
+                    <td><code>DefaultAzureCredential()</code></td>
+                    <td>4-4</td>
+                    <td>produkcia — žiadne tajomstvá v konfigurácii</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div class="box exam">
+            <strong class="label">Na skúšku</strong>
+            <p>
+                Otázka typu „ktorý spôsob autentifikácie je odporúčaný / najbezpečnejší?“ má takmer vždy odpoveď
+                <strong>Microsoft Entra ID (managed identity / <code>DefaultAzureCredential</code>)</strong>, nie kľúč.
+                Kľúče sa dajú rotovať, ale musia sa niekde uložiť; Entra ID identita sa neukladá nikam.
+            </p>
+        </div>
+
+        <h3>Spustenie ktoréhokoľvek dema</h3>
+        <pre><code>cd lesson5-1
+pip install -r requirements.txt
+copy config.env.example config.env    # a vyplň hodnoty
+python textanalytics.py</code></pre>
+        <p><code>config.env</code> je v <code>.gitignore</code>, takže kľúče a endpointy zostávajú lokálne.</p>
+
+        <footer class="page">
+            Dokumentácia k repozitáru <code>ai901coursedemos</code>. Rozpis skúšky podľa
+            <a href="https://learn.microsoft.com/en-us/credentials/certifications/resources/study-guides/ai-901">oficiálneho
+                study guide AI-901</a>.
+        </footer>
+    </div>
+</body>
+
+</html>

@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="sk">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>lesson7-4 — Content Understanding | AI-901</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <header class="page">
+        <div class="wrap">
+            <h1>lesson7-4 — Content Understanding: extrakcia informácií</h1>
+            <p><code>lesson7-4/content_understanding.py</code> — polia z faktúr (PDF aj obrázok) a súhrn zvukovej
+                nahrávky.</p>
+        </div>
+    </header>
+
+    <div class="wrap">
+        <nav class="crumbs"><a href="index.html">← Späť na prehľad</a> &nbsp;·&nbsp; <a
+                href="python-pre-csharp.html">Python pre C# programátora</a></nav>
+
+        <h2>Čo skript robí</h2>
+        <p>
+            Pošle tri lokálne súbory <strong>predpripraveným (prebuilt) analyzátorom</strong> služby
+            <strong>Azure AI Content Understanding</strong> a vypíše, čo z nich služba vytiahla:
+        </p>
+        <table>
+            <thead>
+                <tr>
+                    <th>Súbor</th>
+                    <th>Analyzátor</th>
+                    <th>Výstup</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>example1.pdf</code> — faktúra ako dokument</td>
+                    <td><code>prebuilt-invoice</code></td>
+                    <td>štruktúrované polia faktúry</td>
+                </tr>
+                <tr>
+                    <td><code>example2.jpg</code> — faktúra ako obrázok</td>
+                    <td><code>prebuilt-invoice</code></td>
+                    <td>tie isté polia — ten istý analyzátor zvláda oba formáty</td>
+                </tr>
+                <tr>
+                    <td><code>example3.mp3</code> — nahrávka lekcie</td>
+                    <td><code>prebuilt-callCenter</code></td>
+                    <td>stručný súhrn toho, o čom sa hovorilo</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h2>Rozbor kódu</h2>
+
+        <h3>1. Klient a verzia API</h3>
+        <pre><code>API_VERSION = "2025-11-01"   # GA verzia služby
+
+client = ContentUnderstandingClient(
+    endpoint=endpoint,
+    credential=AzureKeyCredential(key),
+    api_version=API_VERSION,
+)</code></pre>
+        <p>
+            Oproti ostatným demám tu pribudol <strong>explicitný <code>api_version</code></strong>. Pri rýchlo sa
+            vyvíjajúcich službách je pripnutie verzie spôsob, ako zabezpečiť, že sa správanie nezmení pod rukami.
+        </p>
+
+        <h3>2. Jedno volanie pre všetky typy obsahu</h3>
+        <pre><code>def analyze_file(client, analyzer_id, path):
+    file_bytes = read_file(path)
+    poller = client.begin_analyze_binary(analyzer_id, binary_input=file_bytes)
+    return poller.result()</code></pre>
+        <p>
+            Toto je pointa celej služby: <strong>jedna metóda, jeden tvar volania</strong> — či posielaš PDF, JPG
+            alebo MP3. Líši sa len <code>analyzer_id</code>. Opäť ide o <strong>long-running operation</strong>
+            (prefix <code>begin_</code>): SDK za teba rieši odoslanie a periodické dopytovanie na stav,
+            <code>.result()</code> blokuje do dokončenia.
+        </p>
+
+        <h3>3. Polia faktúry</h3>
+        <pre><code>fields = result.contents[0].fields or {}
+for name, field in fields.items():
+    if field.value not in (None, "", [], {}):
+        print(f"  {name}: {field.value}")</code></pre>
+        <p>
+            Výsledok je <code>contents</code> (jeden záznam na dokument), v ňom slovník <code>fields</code>. Každé pole
+            má typ (string, number, date, pole položiek…), ale <strong>univerzálne <code>.value</code></strong>, takže
+            sa dá vypísať jednotne. Prázdne polia sa preskakujú.
+        </p>
+        <p>
+            <code>prebuilt-invoice</code> vracia typicky dodávateľa a odberateľa, číslo faktúry, dátum vystavenia
+            a splatnosti, jednotlivé položky, daň a celkovú sumu — bez akéhokoľvek trénovania.
+        </p>
+
+        <h3>4. Zvukový obsah</h3>
+        <pre><code>def get_audio_content(result):
+    for content in result.contents or []:
+        if isinstance(content, AudioVisualContent):
+            return content
+        if str(content.get("kind", "")) == "audioVisual":
+            return content
+    return None</code></pre>
+        <p>
+            Obsah sa rozlišuje diskriminátorom <code>kind</code>. Kontrola je zámerne dvojitá — cez typ aj cez reťazec
+            — lebo SDK model je slovníkovitý a podľa verzie sa môže vrátiť jedno alebo druhé. Súhrn sa potom číta
+            z poľa <code>Summary</code>.
+        </p>
+        <p>
+            Analyzátor <code>prebuilt-callCenter</code> je určený na nahrávky hovorov, ale funguje na ľubovoľnú
+            hovorenú nahrávku: najprv ju prepíše na text a nad prepisom vygeneruje súhrn.
+        </p>
+
+        <h2>Konfigurácia</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Premenná</th>
+                    <th>Význam</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>AZURE_CONTENT_UNDERSTANDING_ENDPOINT</code></td>
+                    <td>endpoint Foundry / AI Services zdroja s povoleným Content Understanding</td>
+                </tr>
+                <tr>
+                    <td><code>AZURE_CONTENT_UNDERSTANDING_KEY</code></td>
+                    <td>kľúč k tomu zdroju</td>
+                </tr>
+            </tbody>
+        </table>
+        <p>Závislosti: <code>azure-ai-contentunderstanding</code>, <code>python-dotenv</code>.</p>
+
+        <div class="box exam">
+            <strong class="label">Čo z toho treba na skúšku</strong>
+            <p>Doména: <em>Implement AI solutions for information extraction by using Foundry</em> — pokrýva všetky
+                štyri body naraz (dokumenty a formuláre, obrázky, audio/video, lightweight aplikácia).</p>
+            <ul>
+                <li><strong>Content Understanding je multimodálne.</strong> Jedna služba a jeden tvar volania pre
+                    dokumenty, obrázky, zvuk aj video. Ak otázka spomína „extract information from audio <em>and</em>
+                    documents with one service“, odpoveď je Content Understanding.</li>
+                <li><strong>Prebuilt vs. custom analyzer.</strong> Prebuilt = hotový, bez trénovania (faktúra, účtenka,
+                    call center…). Custom analyzer = vlastná schéma polí, ktoré chceš vytiahnuť z vlastných
+                    dokumentov.</li>
+                <li><strong>OCR ≠ extrakcia informácií.</strong> OCR (<a href="lesson6-3.html">lesson6-3</a>) vráti
+                    surový text. Content Understanding vráti <em>pomenované polia s hodnotami</em> — číslo faktúry,
+                    dátum splatnosti, celkovú sumu.</li>
+                <li><strong>Long-running operation.</strong> Extrakcia nie je okamžitá: odošli → dopytuj sa na stav →
+                    prevezmi výsledok. V SDK to skrýva poller.</li>
+                <li><strong>Confidence pri poliach.</strong> Aj extrahované polia majú skóre — slúži na rozhodnutie,
+                    ktoré dokumenty poslať na ľudskú kontrolu (human-in-the-loop). To je zároveň príklad princípov
+                    <em>reliability &amp; safety</em> a <em>accountability</em> zo zodpovednej AI.</li>
+            </ul>
+        </div>
+
+        <div class="box">
+            <strong class="label">Kde presne leží hranica medzi službami</strong>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Potrebujem</th>
+                        <th>Služba</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>prečítať text z obrázka</td>
+                        <td>Azure AI Vision — feature <code>READ</code></td>
+                    </tr>
+                    <tr>
+                        <td>entity a kľúčové frázy z čistého textu</td>
+                        <td>Azure AI Language</td>
+                    </tr>
+                    <tr>
+                        <td>prepísať hovorené slovo na text</td>
+                        <td>Azure AI Speech</td>
+                    </tr>
+                    <tr>
+                        <td>štruktúrované polia z faktúr, účteniek, formulárov, audia či videa</td>
+                        <td>Azure AI Content Understanding</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="box ok">
+            <strong class="label">Typická otázka</strong>
+            <p class="q">Treba automaticky zaúčtovať tisíce faktúr prichádzajúcich ako PDF aj ako fotky. Čo použiješ?
+                <br><span class="a">→ Content Understanding, prebuilt-invoice analyzátor — zvláda oba formáty.</span>
+            </p>
+            <p class="q">Vlastné formuláre majú polia, ktoré žiadny prebuilt analyzátor nepozná.
+                <br><span class="a">→ Custom analyzer s vlastnou definovanou schémou polí.</span>
+            </p>
+            <p class="q">Máš hodiny nahrávok a chceš z nich súhrny a témy.
+                <br><span class="a">→ Content Understanding nad audio obsahom (nie samotné speech-to-text).</span>
+            </p>
+        </div>
+
+        <h2>Cvičné otázky</h2>
+        <p class="quiz-hint">Odpoveď a vysvetlenie odkryješ kliknutím na „Ukázať odpoveď“.</p>
+        <ol class="quiz">
+
+            <li>
+                <p class="qtext">Firme chodia faktúry ako PDF aj ako fotografie z mobilu. Potrebuje z nich
+                    automaticky získať dodávateľa, číslo faktúry a sumu. Čo nasadíš?</p>
+                <ul class="choices">
+                    <li><b>A.</b> Azure AI Vision, feature <code>READ</code></li>
+                    <li><b>B.</b> Content Understanding s analyzátorom <code>prebuilt-invoice</code></li>
+                    <li><b>C.</b> Azure AI Language, NER</li>
+                    <li><b>D.</b> Custom object detection</li>
+                </ul>
+                <details>
+                    <summary>Ukázať odpoveď</summary>
+                    <p><span class="correct">B.</span> Ten istý prebuilt analyzátor zvláda PDF aj obrázok a vracia
+                        <strong>pomenované polia</strong>, nie surový text.</p>
+                </details>
+            </li>
+
+            <li>
+                <p class="qtext">Aký je rozdiel medzi OCR a extrakciou informácií?</p>
+                <ul class="choices">
+                    <li><b>A.</b> Žiadny, ide o rôzne názvy tej istej veci.</li>
+                    <li><b>B.</b> OCR vráti surový text; extrakcia informácií vráti pomenované polia s hodnotami.</li>
+                    <li><b>C.</b> OCR funguje len na PDF, extrakcia len na obrázky.</li>
+                    <li><b>D.</b> OCR vyžaduje trénovanie, extrakcia nie.</li>
+                </ul>
+                <details>
+                    <summary>Ukázať odpoveď</summary>
+                    <p><span class="correct">B.</span> OCR povie „na obrázku je text <em>Total: 1 250 €</em>“.
+                        Extrakcia povie „pole <code>InvoiceTotal</code> má hodnotu <code>1250</code>“. Rozdiel je
+                        v štruktúre, nie v čítaní.</p>
+                </details>
+            </li>
+
+            <li>
+                <p class="qtext">Vlastné formuláre obsahujú polia, ktoré žiadny prebuilt analyzátor nepozná. Riešenie?
+                </p>
+                <ul class="choices">
+                    <li><b>A.</b> Custom analyzer s vlastnou definovanou schémou polí.</li>
+                    <li><b>B.</b> Použiť <code>prebuilt-invoice</code> a ignorovať chýbajúce polia.</li>
+                    <li><b>C.</b> Zmeniť <code>api_version</code>.</li>
+                    <li><b>D.</b> Poslať dokument viackrát.</li>
+                </ul>
+                <details>
+                    <summary>Ukázať odpoveď</summary>
+                    <p><span class="correct">A.</span> Pri custom analyzéri popíšeš, ktoré polia chceš vytiahnuť, a
+                        služba ich extrahuje z tvojich dokumentov.</p>
+                </details>
+            </li>
+
+            <li>
+                <p class="qtext">Organizácia potrebuje jednou službou spracovať dokumenty, obrázky, nahrávky hovorov
+                    <strong>aj</strong> videá. Čo vyberieš?</p>
+                <ul class="choices">
+                    <li><b>A.</b> Azure AI Vision</li>
+                    <li><b>B.</b> Azure AI Speech</li>
+                    <li><b>C.</b> Azure AI Content Understanding</li>
+                    <li><b>D.</b> Azure AI Language</li>
+                </ul>
+                <details>
+                    <summary>Ukázať odpoveď</summary>
+                    <p><span class="correct">C.</span> Kľúčové slovo je <strong>multimodálnosť</strong> — jedna služba
+                        a jeden tvar volania pre všetky typy obsahu. Ostatné služby sú vždy len pre jednu modalitu.</p>
+                </details>
+            </li>
+
+            <li>
+                <p class="qtext">Prečo skript volá <code>begin_analyze_binary()</code> a potom <code>.result()</code>?
+                </p>
+                <ul class="choices">
+                    <li><b>A.</b> Kvôli opakovaniu pri chybe.</li>
+                    <li><b>B.</b> Ide o long-running operation — odošli, dopytuj sa na stav, prevezmi výsledok.</li>
+                    <li><b>C.</b> Aby sa súbor rozdelil na časti.</li>
+                    <li><b>D.</b> Je to požiadavka autentifikácie.</li>
+                </ul>
+                <details>
+                    <summary>Ukázať odpoveď</summary>
+                    <p><span class="correct">B.</span> Analýza nie je okamžitá. Poller za teba skrýva periodické
+                        dopytovanie stavu. V .NET SDK je ekvivalentom <code>Operation&lt;T&gt;</code> a
+                        <code>WaitForCompletion</code>.</p>
+                </details>
+            </li>
+
+            <li>
+                <p class="qtext">Extrahované polia majú confidence score. Ako sa v praxi využije?</p>
+                <ul class="choices">
+                    <li><b>A.</b> Na fakturáciu podľa presnosti.</li>
+                    <li><b>B.</b> Na rozhodnutie, ktoré dokumenty poslať na ľudskú kontrolu.</li>
+                    <li><b>C.</b> Na zoradenie polí vo výstupe.</li>
+                    <li><b>D.</b> Nemá praktické využitie.</li>
+                </ul>
+                <details>
+                    <summary>Ukázať odpoveď</summary>
+                    <p><span class="correct">B.</span> Vzor <em>human-in-the-loop</em>: dokumenty pod stanoveným prahom
+                        skontroluje človek. Je to priama aplikácia princípov <em>reliability &amp; safety</em>
+                        a <em>accountability</em>.</p>
+                </details>
+            </li>
+
+            <li>
+                <p class="qtext">Z nahrávky školenia potrebuješ stručný súhrn toho, o čom sa hovorilo. Stačí
+                    speech-to-text?</p>
+                <ul class="choices">
+                    <li><b>A.</b> Áno, prepis je zároveň súhrn.</li>
+                    <li><b>B.</b> Nie — STT vráti len prepis; súhrn poskytne Content Understanding nad audio obsahom.
+                    </li>
+                    <li><b>C.</b> Nie, treba custom neural voice.</li>
+                    <li><b>D.</b> Áno, ak sa zapne diarizácia.</li>
+                </ul>
+                <details>
+                    <summary>Ukázať odpoveď</summary>
+                    <p><span class="correct">B.</span> Analyzátor <code>prebuilt-callCenter</code> nahrávku najprv
+                        prepíše a nad prepisom vygeneruje pole <code>Summary</code>.</p>
+                </details>
+            </li>
+
+            <li>
+                <p class="qtext">Prečo je v klientovi explicitne uvedená <code>api_version="2025-11-01"</code>?</p>
+                <ul class="choices">
+                    <li><b>A.</b> Je to povinný autentifikačný parameter.</li>
+                    <li><b>B.</b> Pripnutie verzie API zabezpečí, že sa správanie služby nezmení pri jej aktualizácii.
+                    </li>
+                    <li><b>C.</b> Určuje región nasadenia.</li>
+                    <li><b>D.</b> Vyberá prebuilt analyzátor.</li>
+                </ul>
+                <details>
+                    <summary>Ukázať odpoveď</summary>
+                    <p><span class="correct">B.</span> Uvedená hodnota je GA verzia služby. Skúška sa pýta prevažne na
+                        GA funkcie, nie na preview.</p>
+                </details>
+            </li>
+
+            <li>
+                <p class="qtext">Priraď službu k úlohe. <span class="multi">Ktorá dvojica je <strong>nesprávna</strong>?
+                    </span></p>
+                <ul class="choices">
+                    <li><b>A.</b> Prečítať text z fotografie → Azure AI Vision, <code>READ</code></li>
+                    <li><b>B.</b> Kľúčové frázy z článku → Azure AI Language</li>
+                    <li><b>C.</b> Prepis mikrofónu naživo → Azure AI Speech</li>
+                    <li><b>D.</b> Polia z naskenovanej účtenky → Azure AI Speech</li>
+                </ul>
+                <details>
+                    <summary>Ukázať odpoveď</summary>
+                    <p><span class="correct">D je nesprávna.</span> Účtenky a faktúry rieši Content Understanding
+                        (napr. <code>prebuilt-receipt</code> / <code>prebuilt-invoice</code>). Speech je výhradne pre
+                        zvuk.</p>
+                </details>
+            </li>
+
+            <li>
+                <p class="qtext">Aká je výhoda prebuilt analyzátorov oproti vlastným modelom?</p>
+                <ul class="choices">
+                    <li><b>A.</b> Sú presnejšie na akýchkoľvek dátach.</li>
+                    <li><b>B.</b> Nevyžadujú trénovanie ani označené dáta — použiteľné okamžite.</li>
+                    <li><b>C.</b> Sú zadarmo.</li>
+                    <li><b>D.</b> Bežia lokálne bez pripojenia.</li>
+                </ul>
+                <details>
+                    <summary>Ukázať odpoveď</summary>
+                    <p><span class="correct">B.</span> Prebuilt = hotové pre bežné scenáre (faktúra, účtenka, call
+                        center). Custom je presnejší len pre <em>tvoje</em> špecifické dokumenty a vyžaduje prípravu.
+                    </p>
+                </details>
+            </li>
+
+        </ol>
+
+        <footer class="page"><a href="index.html">← Späť na prehľad</a></footer>
+    </div>
+</body>
+
+</html>

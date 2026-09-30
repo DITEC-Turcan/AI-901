@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="sk">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>lesson5-3 — Prepis reči naživo | AI-901</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <header class="page">
+        <div class="wrap">
+            <h1>lesson5-3 — Prepis reči naživo z mikrofónu</h1>
+            <p><code>lesson5-3/chatclient.py</code> — kontinuálne speech-to-text cez Azure Speech SDK.</p>
+        </div>
+    </header>
+
+    <div class="wrap">
+        <nav class="crumbs"><a href="index.html">← Späť na prehľad</a> &nbsp;·&nbsp; <a
+                href="python-pre-csharp.html">Python pre C# programátora</a></nav>
+
+        <h2>Čo skript robí</h2>
+        <p>
+            Otvorí predvolený mikrofón, streamuje zvuk do služby <strong>Azure AI Speech</strong> a v reálnom čase
+            vypisuje do konzoly dva druhy výsledkov: priebežné hypotézy (prefix <code>...</code>), ktoré sa počas
+            hovorenia menia, a finálne rozpoznané frázy (prefix <code>&gt;&gt;&gt;</code>). Beh sa ukončí stlačením
+            <kbd>Enter</kbd>.
+        </p>
+
+        <h2>Tok volania</h2>
+        <pre><code>SpeechConfig(subscription=key, endpoint=endpoint)   # KTO a KAM
+AudioConfig(use_default_microphone=True)           # ODKIAĽ prichádza zvuk
+             ↓
+SpeechRecognizer(speech_config, audio_config)
+             ↓
+recognizer.recognizing  → priebežné (partial) výsledky
+recognizer.recognized   → finálna fráza
+             ↓
+start_continuous_recognition()  ...  stop_continuous_recognition()</code></pre>
+
+        <h2>Rozbor kódu</h2>
+
+        <h3>1. Tri objekty, ktoré treba poznať</h3>
+        <pre><code>speech_config = speechsdk.SpeechConfig(subscription=speech_key, endpoint=endpoint)
+audio_config  = speechsdk.audio.AudioConfig(use_default_microphone=True)
+recognizer    = speechsdk.SpeechRecognizer(
+    speech_config=speech_config, audio_config=audio_config
+)</code></pre>
+        <dl class="kv">
+            <dt><code>SpeechConfig</code></dt>
+            <dd>autentifikácia a nastavenia služby — kľúč, endpoint/región, jazyk rozpoznávania, formát výstupu.</dd>
+            <dt><code>AudioConfig</code></dt>
+            <dd>zdroj (alebo cieľ) zvuku. Tu mikrofón; alternatívou je <code>filename="audio.wav"</code> alebo
+                vlastný stream.</dd>
+            <dt><code>SpeechRecognizer</code></dt>
+            <dd>samotné rozpoznávanie. Jeho protipólom pre syntézu reči je <code>SpeechSynthesizer</code>.</dd>
+        </dl>
+        <p>
+            Táto trojica je <strong>opakujúci sa vzor celého Speech SDK</strong> — rovnako vyzerá aj preklad reči
+            (<code>TranslationRecognizer</code>) či prevod textu na reč.
+        </p>
+
+        <h3>2. Udalosti: recognizing vs. recognized</h3>
+        <pre><code>def on_recognizing(evt):
+    print(f"\r... {evt.result.text}", end="", flush=True)
+
+def on_recognized(evt):
+    if evt.result.text:
+        print(f"\r&gt;&gt;&gt; {evt.result.text}")
+
+recognizer.recognizing.connect(on_recognizing)
+recognizer.recognized.connect(on_recognized)</code></pre>
+        <table>
+            <thead>
+                <tr>
+                    <th>Udalosť</th>
+                    <th>Kedy sa vyvolá</th>
+                    <th>Vlastnosti výsledku</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>recognizing</code></td>
+                    <td>priebežne počas hovorenia, mnohokrát za frázu</td>
+                    <td>nestabilný, prepisuje sa; bez interpunkcie</td>
+                </tr>
+                <tr>
+                    <td><code>recognized</code></td>
+                    <td>raz, po detekcii konca frázy (ticho)</td>
+                    <td>finálny text s interpunkciou a formátovaním</td>
+                </tr>
+            </tbody>
+        </table>
+        <p>
+            <code>\r</code> na začiatku vracia kurzor na začiatok riadku, takže priebežné hypotézy sa prepisujú
+            na mieste namiesto zaplavenia konzoly.
+        </p>
+
+        <h3>3. Kontinuálne vs. jednorazové rozpoznávanie</h3>
+        <pre><code>recognizer.start_continuous_recognition()
+input()                                    # beží na pozadí, čaká sa na Enter
+recognizer.stop_continuous_recognition()</code></pre>
+        <p>
+            <code>start_continuous_recognition()</code> je <strong>neblokujúce</strong> — rozpoznávanie beží na pozadí
+            a výsledky chodia cez udalosti. Hlavné vlákno preto len čaká na <code>input()</code>.
+        </p>
+        <p>
+            Alternatívou je <code>recognize_once_async()</code>, ktoré počká na jednu frázu (max ~15 s) a vráti jeden
+            výsledok. Hodí sa na hlasové príkazy; na diktovanie a titulkovanie treba kontinuálny režim.
+        </p>
+        <p>
+            <code>stop_continuous_recognition()</code> je v bloku <code>finally</code>, takže sa spojenie so službou
+            korektne zatvorí aj pri <kbd>Ctrl+C</kbd>.
+        </p>
+
+        <h2>Konfigurácia</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Premenná</th>
+                    <th>Význam</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>AZURE_SPEECH_ENDPOINT</code></td>
+                    <td>endpoint Speech zdroja</td>
+                </tr>
+                <tr>
+                    <td><code>AZURE_SPEECH_KEY</code></td>
+                    <td>kľúč zo sekcie <em>Keys and Endpoint</em></td>
+                </tr>
+            </tbody>
+        </table>
+        <p>Závislosti: <code>azure-cognitiveservices-speech</code>, <code>python-dotenv</code>. Skript potrebuje
+            fyzický mikrofón a prístup k nemu.</p>
+
+        <div class="box warn">
+            <strong class="label">Pozor</strong>
+            <p>
+                Predvolený jazyk rozpoznávania je <code>en-US</code>. Pre slovenčinu treba nastaviť
+                <code>speech_config.speech_recognition_language = "sk-SK"</code>. Skript to nerobí — po slovensky
+                bude vypisovať nezmysly.
+            </p>
+        </div>
+
+        <div class="box exam">
+            <strong class="label">Čo z toho treba na skúšku</strong>
+            <p>Domény: <em>Identify AI workloads</em> („features and capabilities of speech recognition and speech
+                synthesis“) a <em>Implement AI solutions for text and speech by using Foundry</em> („Build a lightweight
+                application by using Azure Speech in Foundry Tools“).</p>
+            <ul>
+                <li><strong>Speech-to-text vs. text-to-speech.</strong> STT = reč → text (toto demo, diktovanie,
+                    titulky, prepis hovorov). TTS = text → reč (čítanie odpovedí, hlasoví asistenti).</li>
+                <li><strong>Speech translation</strong> je tretia schopnosť: hovorený vstup v jednom jazyku, výstup
+                    v inom — v jednom volaní, nie STT + samostatný prekladač.</li>
+                <li><strong>Kontinuálne vs. <code>recognize_once</code>.</strong> Kontinuálne pre dlhý zvuk a real-time
+                    titulky; jednorazové pre krátky príkaz.</li>
+                <li><strong>Interim (partial) vs. final výsledky.</strong> Toto je presne tá dvojica udalostí
+                    <code>recognizing</code> / <code>recognized</code>. Otázka „prečo sa text na obrazovke mení, kým
+                    používateľ hovorí?“ má odpoveď „sú to priebežné hypotézy“.
+                </li>
+                <li><strong>Ďalšie pojmy Speech služby:</strong> <em>custom speech</em> (doučenie modelu na odbornú
+                    slovnú zásobu a prízvuky), <em>custom neural voice</em> (vlastný hlas — má obmedzený prístup kvôli
+                    zodpovednej AI), <em>SSML</em> (riadenie výslovnosti, prestávok a intonácie pri TTS),
+                    <em>speaker diarization</em> (kto práve hovorí).</li>
+            </ul>
+        </div>
+
+        <div class="box ok">
+            <strong class="label">Typická otázka</strong>
+            <p class="q">Potrebuješ titulky v reálnom čase pre hodinovú prednášku. Aký režim?
+                <br><span class="a">→ Kontinuálne rozpoznávanie s odberom priebežných aj finálnych výsledkov.</span>
+            </p>
+            <p class="q">Model si nerozumie s odbornými skratkami tvojej firmy. Čo urobíš?
+                <br><span class="a">→ Custom speech model natrénovaný na vlastných dátach.</span>
+            </p>
+            <p class="q">Kde nastavíš jazyk rozpoznávania?
+                <br><span class="a">→ V <code>SpeechConfig</code>, nie v <code>AudioConfig</code>.</span>
+            </p>
+        </div>
+
+        <h2>Cvičné otázky</h2>
+        <p class="quiz-hint">Odpoveď a vysvetlenie odkryješ kliknutím na „Ukázať odpoveď“.</p>
+        <ol class="quiz">
+
+            <li>
+                <p class="qtext">Ktorý objekt určuje, <strong>odkiaľ</strong> prichádza zvuk?</p>
+                <ul class="choices">
+                    <li><b>A.</b> <code>SpeechConfig</code></li>
+                    <li><b>B.</b> <code>AudioConfig</code></li>
+                    <li><b>C.</b> <code>SpeechRecognizer</code></li>
+                    <li><b>D.</b> <code>SpeechSynthesizer</code></li>
+                </ul>
+                <details>
+                    <summary>Ukázať odpoveď</summary>
+                    <p><span class="correct">B.</span> <code>AudioConfig</code> = zdroj alebo cieľ zvuku (mikrofón,
+                        súbor, stream). <code>SpeechConfig</code> = kľúč, endpoint, jazyk a nastavenia služby.
+                        <code>SpeechRecognizer</code> ich spojí dokopy.</p>
+                </details>
+            </li>
+
+            <li>
+                <p class="qtext">Potrebuješ titulky v reálnom čase pre hodinovú prednášku. Aký režim rozpoznávania?
+                </p>
+                <ul class="choices">
+                    <li><b>A.</b> <code>recognize_once_async()</code> v cykle</li>
+                    <li><b>B.</b> Kontinuálne rozpoznávanie s odberom udalostí</li>
+                    <li><b>C.</b> Batch transcription po skončení prednášky</li>
+                    <li><b>D.</b> Text-to-speech</li>
+                </ul>
+                <details>
+                    <summary>Ukázať odpoveď</summary>
+                    <p><span class="correct">B.</span> <code>recognize_once</code> počká na jednu frázu (max ~15 s) —
+                        hodí sa na hlasové príkazy. Na dlhý súvislý zvuk a živé titulky treba kontinuálny režim.</p>
+                </details>
+            </li>
+
+            <li>
+                <p class="qtext">Počas hovorenia sa text na obrazovke stále mení a opravuje. Prečo?</p>
+                <ul class="choices">
+                    <li><b>A.</b> Je to chyba siete.</li>
+                    <li><b>B.</b> Sú to priebežné (interim) výsledky z udalosti <code>recognizing</code>.</li>
+                    <li><b>C.</b> Model sa priebežne dotrénováva.</li>
+                    <li><b>D.</b> Je nastavený nesprávny jazyk.</li>
+                </ul>
+                <details>
+                    <summary>Ukázať odpoveď</summary>
+                    <p><span class="correct">B.</span> <code>recognizing</code> sa vyvolá mnohokrát za frázu
+                        a hypotéza sa spresňuje. Finálny text s interpunkciou príde raz, cez
+                        <code>recognized</code>, po detekcii ticha.</p>
+                </details>
+            </li>
+
+            <li>
+                <p class="qtext">Aplikácia má prečítať odpoveď nahlas. Ktorá schopnosť a ktorý objekt?</p>
+                <ul class="choices">
+                    <li><b>A.</b> Speech-to-text, <code>SpeechRecognizer</code></li>
+                    <li><b>B.</b> Text-to-speech, <code>SpeechSynthesizer</code></li>
+                    <li><b>C.</b> Speech translation, <code>TranslationRecognizer</code></li>
+                    <li><b>D.</b> Language detection, <code>TextAnalyticsClient</code></li>
+                </ul>
+                <details>
+                    <summary>Ukázať odpoveď</summary>
+                    <p><span class="correct">B.</span> Reč → text je STT (<code>SpeechRecognizer</code>), text → reč je
+                        TTS (<code>SpeechSynthesizer</code>). Vzor troch objektov zostáva rovnaký.</p>
+                </details>
+            </li>
+
+            <li>
+                <p class="qtext">Používateľ hovorí po španielsky a aplikácia má zobraziť anglický text. Aké je
+                    najjednoduchšie riešenie?</p>
+                <ul class="choices">
+                    <li><b>A.</b> Speech-to-text v španielčine a potom samostatné volanie prekladača.</li>
+                    <li><b>B.</b> Speech translation — hovorený vstup v jednom jazyku, textový výstup v inom, jedným
+                        volaním.</li>
+                    <li><b>C.</b> Text-to-speech s anglickým hlasom.</li>
+                    <li><b>D.</b> Custom speech model.</li>
+                </ul>
+                <details>
+                    <summary>Ukázať odpoveď</summary>
+                    <p><span class="correct">B.</span> Speech translation je samostatná schopnosť služby Speech.
+                        Možnosť A by fungovala, ale je zbytočne zložitá — skúška hľadá jednoduchšie riešenie.</p>
+                </details>
+            </li>
+
+            <li>
+                <p class="qtext">Model si nerozumie s odbornými skratkami a názvami produktov tvojej firmy. Čo urobíš?
+                </p>
+                <ul class="choices">
+                    <li><b>A.</b> Zvýšiš kvalitu mikrofónu.</li>
+                    <li><b>B.</b> Natrénuješ custom speech model na vlastných dátach.</li>
+                    <li><b>C.</b> Prepneš na custom neural voice.</li>
+                    <li><b>D.</b> Použiješ SSML.</li>
+                </ul>
+                <details>
+                    <summary>Ukázať odpoveď</summary>
+                    <p><span class="correct">B.</span> Custom speech zlepšuje <em>rozpoznávanie</em> (odborná slovná
+                        zásoba, prízvuky, hlučné prostredie). Custom neural voice sa týka syntézy, SSML tiež.</p>
+                </details>
+            </li>
+
+            <li>
+                <p class="qtext">Pri prevode textu na reč potrebuješ riadiť prestávky, výslovnosť skratiek a intonáciu.
+                    Čo použiješ?</p>
+                <ul class="choices">
+                    <li><b>A.</b> SSML</li>
+                    <li><b>B.</b> JSON schému odpovede</li>
+                    <li><b>C.</b> <code>AudioConfig</code></li>
+                    <li><b>D.</b> Speaker diarization</li>
+                </ul>
+                <details>
+                    <summary>Ukázať odpoveď</summary>
+                    <p><span class="correct">A.</span> Speech Synthesis Markup Language je XML formát na presné
+                        riadenie syntézy.</p>
+                </details>
+            </li>
+
+            <li>
+                <p class="qtext">Z nahrávky porady potrebuješ vedieť, ktorú vetu povedal ktorý účastník. Ako sa táto
+                    schopnosť volá?</p>
+                <ul class="choices">
+                    <li><b>A.</b> Intent recognition</li>
+                    <li><b>B.</b> Speaker diarization</li>
+                    <li><b>C.</b> Keyword spotting</li>
+                    <li><b>D.</b> Sentiment analysis</li>
+                </ul>
+                <details>
+                    <summary>Ukázať odpoveď</summary>
+                    <p><span class="correct">B.</span> Diarizácia rozdelí prepis podľa hovoriacich („kto kedy hovorí“).
+                    </p>
+                </details>
+            </li>
+
+            <li>
+                <p class="qtext">Skript rozpoznáva anglicky, hoci hovoríš po slovensky. Čo chýba?</p>
+                <ul class="choices">
+                    <li><b>A.</b> Iný endpoint pre slovenčinu.</li>
+                    <li><b>B.</b> Nastavenie <code>speech_config.speech_recognition_language = "sk-SK"</code>.</li>
+                    <li><b>C.</b> Custom neural voice pre slovenčinu.</li>
+                    <li><b>D.</b> Iný typ mikrofónu.</li>
+                </ul>
+                <details>
+                    <summary>Ukázať odpoveď</summary>
+                    <p><span class="correct">B.</span> Predvolený jazyk je <code>en-US</code>. Jazyk sa nastavuje
+                        v <code>SpeechConfig</code> pomocou locale kódu, nie v <code>AudioConfig</code>.</p>
+                </details>
+            </li>
+
+            <li>
+                <p class="qtext">Prečo je <code>stop_continuous_recognition()</code> v bloku <code>finally</code>?</p>
+                <ul class="choices">
+                    <li><b>A.</b> Aby sa rozpoznávanie spustilo znova.</li>
+                    <li><b>B.</b> Aby sa spojenie so službou korektne uzavrelo aj pri prerušení cez Ctrl+C.</li>
+                    <li><b>C.</b> Aby sa uložil prepis na disk.</li>
+                    <li><b>D.</b> Je to povinné pre Speech SDK.</li>
+                </ul>
+                <details>
+                    <summary>Ukázať odpoveď</summary>
+                    <p><span class="correct">B.</span> <code>finally</code> sa vykoná vždy — aj pri výnimke. Rovnaká
+                        logika ako v C#.</p>
+                </details>
+            </li>
+
+            <li>
+                <p class="qtext">Nahrávky hovorov sa majú prepisovať dávkovo v noci, nie v reálnom čase. Čo je
+                    vhodnejšie než mikrofónový vstup?</p>
+                <ul class="choices">
+                    <li><b>A.</b> <code>AudioConfig(filename=...)</code> nad uloženými súbormi, prípadne batch
+                        transcription.</li>
+                    <li><b>B.</b> Zvýšiť počet udalostí <code>recognizing</code>.</li>
+                    <li><b>C.</b> Prepnúť na text-to-speech.</li>
+                    <li><b>D.</b> Použiť SSML.</li>
+                </ul>
+                <details>
+                    <summary>Ukázať odpoveď</summary>
+                    <p><span class="correct">A.</span> <code>AudioConfig</code> vie okrem mikrofónu čítať aj súbor
+                        alebo vlastný stream — zmení sa jediný riadok kódu.</p>
+                </details>
+            </li>
+
+        </ol>
+
+        <footer class="page"><a href="index.html">← Späť na prehľad</a></footer>
+    </div>
+</body>
+
+</html>

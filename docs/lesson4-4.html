@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="sk">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>lesson4-4 — Chat klient k Foundry agentovi | AI-901</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <header class="page">
+        <div class="wrap">
+            <h1>lesson4-4 — Chat klient k Foundry agentovi</h1>
+            <p><code>lesson4-4/chatclient.py</code> — to isté UX ako lesson4-2, ale hovorí s publikovaným
+                <strong>agentom</strong>.
+            </p>
+        </div>
+    </header>
+
+    <div class="wrap">
+        <nav class="crumbs"><a href="index.html">← Späť na prehľad</a> &nbsp;·&nbsp; <a
+                href="python-pre-csharp.html">Python pre C# programátora</a></nav>
+
+        <h2>Čo skript robí</h2>
+        <p>
+            Pripojí sa k <strong>Foundry projektu</strong> cez <code>AIProjectClient</code>, z neho získa
+            OpenAI klienta a v slučke volá <strong>Responses API</strong> s odkazom na konkrétneho agenta
+            (názov + verzia). Agent má svoje inštrukcie, nástroje a znalostné zdroje uložené v službe — klient
+            o nich nič nevie a nič neposiela.
+        </p>
+        <p>
+            Kľúčový rozdiel oproti lesson4-2: <strong>históriu konverzácie drží služba</strong>. Klient si pamätá len
+            jednu hodnotu — <code>previous_response_id</code>.
+        </p>
+
+        <h2>Tok volania</h2>
+        <pre><code>az login  →  DefaultAzureCredential()
+             ↓
+AIProjectClient(endpoint, credential).get_openai_client()
+             ↓
+responses.create(
+    input=[{role:"user", content:...}],
+    extra_body={agent_reference: {name, version, type}},
+    previous_response_id=&lt;id predchádzajúcej odpovede alebo nič&gt;
+)
+             ↓
+response.output_text   +   response.id → uloží sa ako previous_response_id</code></pre>
+
+        <h2>Rozbor kódu</h2>
+
+        <h3>1. Kódovanie výstupu</h3>
+        <pre><code>sys.stdout.reconfigure(encoding="utf-8")</code></pre>
+        <p>
+            Praktický detail pre Windows: bez tohto riadku konzola padne alebo zmrší diakritiku a emoji v odpovedi
+            agenta. So skúškou to nesúvisí, s reálnym spustením veľmi.
+        </p>
+
+        <h3>2. Autentifikácia cez Entra ID</h3>
+        <pre><code>project_client = AIProjectClient(
+    endpoint=endpoint,
+    credential=DefaultAzureCredential(),
+)
+openai_client = project_client.get_openai_client()</code></pre>
+        <p>
+            <code>DefaultAzureCredential</code> postupne skúša viac zdrojov identity — premenné prostredia, managed
+            identity, prihlásenie cez Azure CLI (<code>az login</code>), VS Code atď. V tomto deme sa použije tvoje
+            CLI prihlásenie. <strong>Žiadny kľúč v konfigurácii nie je potrebný</strong> (hoci
+            <code>config.env.example</code> jednu takú položku ešte obsahuje, skript ju nečíta).
+        </p>
+        <p>
+            <code>endpoint</code> tu nie je endpoint modelu, ale <strong>endpoint projektu</strong> — nájdeš ho
+            v portáli pod <em>Project &gt; Settings &gt; Project details</em>.
+        </p>
+
+        <h3>3. Odkaz na agenta</h3>
+        <pre><code>agent_reference = {
+    "agent_reference": {
+        "name": agent_name,
+        "version": agent_version,
+        "type": "agent_reference",
+    }
+}</code></pre>
+        <p>
+            Agent sa identifikuje <strong>názvom a verziou</strong>. Verziovanie umožňuje upraviť agenta v portáli
+            a klienta prepnúť na novú verziu až vtedy, keď je otestovaná. Objekt sa posiela cez
+            <code>extra_body</code>, pretože ide o rozšírenie Azure nad rámec štandardnej OpenAI schémy.
+        </p>
+
+        <h3>4. Stav konverzácie na strane služby</h3>
+        <pre><code>kwargs = {"input": [{"role": "user", "content": user_input}],
+          "extra_body": agent_reference}
+if previous_response_id:
+    kwargs["previous_response_id"] = previous_response_id
+
+response = openai_client.responses.create(**kwargs)
+previous_response_id = response.id
+print(response.output_text)</code></pre>
+        <p>
+            Posiela sa <strong>len nová správa</strong>. Reťazenie cez <code>previous_response_id</code> povie službe,
+            na ktorú odpoveď nadväzujeme, a tá si doplní kontext sama. Prvé volanie ho nemá — začína novú konverzáciu.
+        </p>
+        <p>
+            <code>response.output_text</code> je pohodlná skratka, ktorá zlepí textové časti výstupu. Odpoveď agenta
+            totiž môže obsahovať aj iné položky než text (napr. volania nástrojov).
+        </p>
+
+        <h2>Konfigurácia</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Premenná</th>
+                    <th>Význam</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>AZURE_FOUNDRY_ENDPOINT</code></td>
+                    <td>endpoint <strong>projektu</strong> (nie deploymentu modelu)</td>
+                </tr>
+                <tr>
+                    <td><code>AZURE_FOUNDRY_AGENT_NAME</code></td>
+                    <td>názov agenta z portálu</td>
+                </tr>
+                <tr>
+                    <td><code>AZURE_FOUNDRY_AGENT_VERSION</code></td>
+                    <td>verzia agenta, napr. <code>v2</code></td>
+                </tr>
+            </tbody>
+        </table>
+        <p>Závislosti: <code>azure-ai-projects</code>, <code>azure-identity</code>, <code>openai</code>,
+            <code>python-dotenv</code>. Pred spustením treba <code>az login</code>.
+        </p>
+
+        <div class="box exam">
+            <strong class="label">Čo z toho treba na skúšku</strong>
+            <p>Doména: <em>Implement generative AI apps and agents by using Foundry</em> — body „Create and test a
+                single-agent solution in the Foundry portal“ a „Create a lightweight client application for an agent“.
+            </p>
+            <ul>
+                <li><strong>Čo je agent.</strong> Model + trvalé inštrukcie + nástroje + (voliteľne) znalostné zdroje,
+                    zabalené a publikované v službe. Nie je to iný model — je to model s konfiguráciou okolo neho.</li>
+                <li><strong>Kde žijú inštrukcie.</strong> Pri agentovi v službe, nie v kóde klienta. Preto klient
+                    neposiela systémový prompt.</li>
+                <li><strong>Kde žije stav konverzácie.</strong> Pri agentovi na strane služby, klient reťazí len
+                    <code>previous_response_id</code>. Pri holom modeli si históriu drží klient sám.
+                </li>
+                <li><strong><code>DefaultAzureCredential</code></strong> = autentifikácia cez Microsoft Entra ID,
+                    odporúčaná alternatíva ku kľúčom.</li>
+                <li><strong>Single-agent vs. multi-agent.</strong> Toto demo je single-agent riešenie. Multi-agent =
+                    viac špecializovaných agentov, kde jeden deleguje úlohy ostatným (connected agents).</li>
+            </ul>
+        </div>
+
+        <h2>Model vs. agent — porovnanie, ktoré sa oplatí vedieť</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th></th>
+                    <th>lesson4-2 (model)</th>
+                    <th>lesson4-4 (agent)</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>API</td>
+                    <td>Chat Completions</td>
+                    <td>Responses API + <code>agent_reference</code></td>
+                </tr>
+                <tr>
+                    <td>Inštrukcie</td>
+                    <td>systémová správa posielaná klientom</td>
+                    <td>uložené pri agentovi v službe</td>
+                </tr>
+                <tr>
+                    <td>História</td>
+                    <td>klient posiela celé pole <code>messages</code></td>
+                    <td>služba, cez <code>previous_response_id</code></td>
+                </tr>
+                <tr>
+                    <td>Nástroje / knowledge</td>
+                    <td>musíš doimplementovať sám</td>
+                    <td>nakonfigurované v portáli</td>
+                </tr>
+                <tr>
+                    <td>Autentifikácia v deme</td>
+                    <td>API kľúč</td>
+                    <td>Entra ID (<code>DefaultAzureCredential</code>)</td>
+                </tr>
+                <tr>
+                    <td>Identifikácia cieľa</td>
+                    <td>názov deploymentu</td>
+                    <td>názov + verzia agenta</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div class="box ok">
+            <strong class="label">Typická otázka</strong>
+            <p class="q">Chceš, aby všetci klienti používali rovnaké inštrukcie a mali prístup k firemným dokumentom,
+                bez zmeny kódu v každej aplikácii. Čo nasadíš?
+                <br><span class="a">→ Agenta v Foundry, nie samotný model.</span>
+            </p>
+            <p class="q">Aplikácia nemá posielať kľúče. Aký credential použiješ?
+                <br><span class="a">→ <code>DefaultAzureCredential</code> / managed identity.</span>
+            </p>
+        </div>
+
+        <h2>Cvičné otázky</h2>
+        <p class="quiz-hint">Odpoveď a vysvetlenie odkryješ kliknutím na „Ukázať odpoveď“.</p>
+        <ol class="quiz">
+
+            <li>
+                <p class="qtext">Čo tvorí agenta v Microsoft Foundry?</p>
+                <ul class="choices">
+                    <li><b>A.</b> Špeciálny typ modelu natrénovaný na agentické úlohy.</li>
+                    <li><b>B.</b> Model doplnený o trvalé inštrukcie, nástroje a prípadne znalostné zdroje.</li>
+                    <li><b>C.</b> Virtuálny stroj, na ktorom beží model.</li>
+                    <li><b>D.</b> Klientská knižnica pre volanie modelu.</li>
+                </ul>
+                <details>
+                    <summary>Ukázať odpoveď</summary>
+                    <p><span class="correct">B.</span> Agent nie je iný model — je to model <em>s konfiguráciou okolo
+                            neho</em>, publikovanou v službe.</p>
+                </details>
+            </li>
+
+            <li>
+                <p class="qtext">Kde sú uložené inštrukcie agenta?</p>
+                <ul class="choices">
+                    <li><b>A.</b> V systémovej správe, ktorú posiela klient pri každom volaní.</li>
+                    <li><b>B.</b> V službe, pri definícii agenta.</li>
+                    <li><b>C.</b> V súbore <code>config.env</code>.</li>
+                    <li><b>D.</b> V premennej <code>previous_response_id</code>.</li>
+                </ul>
+                <details>
+                    <summary>Ukázať odpoveď</summary>
+                    <p><span class="correct">B.</span> Práve preto klient v tomto deme <strong>žiadny systémový prompt
+                            neposiela</strong>. Zmena inštrukcií v portáli sa prejaví vo všetkých klientoch bez
+                        rekompilácie.</p>
+                </details>
+            </li>
+
+            <li>
+                <p class="qtext">Na čo slúži <code>previous_response_id</code>?</p>
+                <ul class="choices">
+                    <li><b>A.</b> Na fakturáciu jednotlivých volaní.</li>
+                    <li><b>B.</b> Na nadviazanie na predchádzajúcu odpoveď, aby služba doplnila kontext konverzácie.
+                    </li>
+                    <li><b>C.</b> Na výber verzie agenta.</li>
+                    <li><b>D.</b> Na opakované odoslanie tej istej požiadavky.</li>
+                </ul>
+                <details>
+                    <summary>Ukázať odpoveď</summary>
+                    <p><span class="correct">B.</span> Stav konverzácie drží služba. Klient si pamätá jedinú hodnotu —
+                        ID poslednej odpovede. Pri prvom volaní sa neposiela, čím sa začína nová konverzácia.</p>
+                </details>
+            </li>
+
+            <li>
+                <p class="qtext">Aplikácia sa nemá autentifikovať kľúčom. Ktorý prístup je odporúčaný?</p>
+                <ul class="choices">
+                    <li><b>A.</b> Zakódovať kľúč do binárky a zašifrovať ho.</li>
+                    <li><b>B.</b> Použiť <code>DefaultAzureCredential</code> a identitu Microsoft Entra ID.</li>
+                    <li><b>C.</b> Použiť <code>AzureKeyCredential</code> s kľúčom z premennej prostredia.</li>
+                    <li><b>D.</b> Vypnúť autentifikáciu na endpointe.</li>
+                </ul>
+                <details>
+                    <summary>Ukázať odpoveď</summary>
+                    <p><span class="correct">B.</span> Entra ID / managed identity je vždy odporúčaná odpoveď, keď sa
+                        otázka pýta na najbezpečnejší spôsob. Kľúč sa musí niekde uložiť; identita nie.</p>
+                </details>
+            </li>
+
+            <li>
+                <p class="qtext">Čo presne musí byť v <code>AZURE_FOUNDRY_ENDPOINT</code> pri tomto skripte?</p>
+                <ul class="choices">
+                    <li><b>A.</b> Endpoint konkrétneho deploymentu modelu.</li>
+                    <li><b>B.</b> Endpoint <strong>projektu</strong> v Foundry.</li>
+                    <li><b>C.</b> URL portálu Azure.</li>
+                    <li><b>D.</b> Adresa Entra ID tenanta.</li>
+                </ul>
+                <details>
+                    <summary>Ukázať odpoveď</summary>
+                    <p><span class="correct">B.</span> <code>AIProjectClient</code> sa pripája k projektu (portál →
+                        Project → Settings → Project details), nie k jednotlivému modelu.</p>
+                </details>
+            </li>
+
+            <li>
+                <p class="qtext">Prečo sa agent identifikuje názvom <em>aj verziou</em>?</p>
+                <ul class="choices">
+                    <li><b>A.</b> Verzia určuje región nasadenia.</li>
+                    <li><b>B.</b> Aby sa dal agent upraviť a klienti prepnúť na novú verziu až po otestovaní.</li>
+                    <li><b>C.</b> Verzia je povinná súčasť fakturácie.</li>
+                    <li><b>D.</b> Názov nie je jedinečný naprieč Azure.</li>
+                </ul>
+                <details>
+                    <summary>Ukázať odpoveď</summary>
+                    <p><span class="correct">B.</span> Verziovanie oddeľuje úpravy agenta od nasadenia klientov —
+                        bežný vzor pri bezpečnom zavádzaní zmien.</p>
+                </details>
+            </li>
+
+            <li>
+                <p class="qtext">Riešenie obsahuje jedného agenta, ktorý odpovedá na otázky o firemných smerniciach.
+                    Ako sa tento typ riešenia označuje?</p>
+                <ul class="choices">
+                    <li><b>A.</b> Multi-agent riešenie.</li>
+                    <li><b>B.</b> Single-agent riešenie.</li>
+                    <li><b>C.</b> Orchestrácia workflow.</li>
+                    <li><b>D.</b> Fine-tuned model.</li>
+                </ul>
+                <details>
+                    <summary>Ukázať odpoveď</summary>
+                    <p><span class="correct">B.</span> Multi-agent riešenie znamená viac špecializovaných agentov, kde
+                        jeden deleguje úlohy ostatným (connected agents).</p>
+                </details>
+            </li>
+
+            <li>
+                <p class="qtext">Agent má odpovedať na otázky z interných PDF dokumentov. Čo mu nakonfiguruješ?</p>
+                <ul class="choices">
+                    <li><b>A.</b> Vyššiu <code>temperature</code>.</li>
+                    <li><b>B.</b> Znalostný zdroj (napr. nahrané súbory alebo index vyhľadávania).</li>
+                    <li><b>C.</b> Ďalšiu verziu agenta.</li>
+                    <li><b>D.</b> Streamovanie odpovede.</li>
+                </ul>
+                <details>
+                    <summary>Ukázať odpoveď</summary>
+                    <p><span class="correct">B.</span> Ide o vzor <em>grounding</em> / RAG — model odpovedá na základe
+                        dodaných dokumentov, čím sa výrazne znižuje riziko halucinácií.</p>
+                </details>
+            </li>
+
+            <li>
+                <p class="qtext">Čím sa zásadne líši volanie agenta od volania holého modelu z pohľadu klienta?
+                    <span class="multi">Vyber dve správne možnosti.</span></p>
+                <ul class="choices">
+                    <li><b>A.</b> Klient neposiela systémový prompt.</li>
+                    <li><b>B.</b> Klient musí posielať celé pole <code>messages</code> s históriou.</li>
+                    <li><b>C.</b> Stav konverzácie udržiava služba.</li>
+                    <li><b>D.</b> Klient musí implementovať nástroje sám.</li>
+                </ul>
+                <details>
+                    <summary>Ukázať odpoveď</summary>
+                    <p><span class="correct">A a C.</span> B aj D platia pre holý model (lesson4-2), nie pre agenta.
+                    </p>
+                </details>
+            </li>
+
+            <li>
+                <p class="qtext">Pri spustení skriptu vznikne chyba autentifikácie, hoci kód je správny. Čo si overíš
+                    ako prvé?</p>
+                <ul class="choices">
+                    <li><b>A.</b> Či je vyplnený <code>AZURE_FOUNDRY_API_KEY</code>.</li>
+                    <li><b>B.</b> Či si prihlásený (<code>az login</code>) a máš rolu na Foundry projekte.</li>
+                    <li><b>C.</b> Či je model nasadený v správnom regióne.</li>
+                    <li><b>D.</b> Či je nainštalovaná knižnica <code>openai</code>.</li>
+                </ul>
+                <details>
+                    <summary>Ukázať odpoveď</summary>
+                    <p><span class="correct">B.</span> <code>DefaultAzureCredential</code> v tomto scenári čerpá
+                        identitu z prihlásenia v Azure CLI. Kľúč skript vôbec nečíta, aj keď je v
+                        <code>config.env.example</code> uvedený. Okrem prihlásenia treba mať priradenú aj príslušnú
+                        rolu RBAC.</p>
+                </details>
+            </li>
+
+        </ol>
+
+        <footer class="page"><a href="index.html">← Späť na prehľad</a></footer>
+    </div>
+</body>
+
+</html>

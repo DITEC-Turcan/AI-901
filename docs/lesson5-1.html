@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="sk">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>lesson5-1 — Analýza textu | AI-901</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <header class="page">
+        <div class="wrap">
+            <h1>lesson5-1 — Analýza textu: sumarizácia, entity, kľúčové frázy</h1>
+            <p><code>lesson5-1/textanalytics.py</code> — tri schopnosti služby Azure AI Language nad jedným článkom.
+            </p>
+        </div>
+    </header>
+
+    <div class="wrap">
+        <nav class="crumbs"><a href="index.html">← Späť na prehľad</a> &nbsp;·&nbsp; <a
+                href="python-pre-csharp.html">Python pre C# programátora</a></nav>
+
+        <h2>Čo skript robí</h2>
+        <p>
+            Vezme pevne zapísaný vzorový text (krátka správa o firme Contoso Travel) a pošle ho službe
+            <strong>Azure AI Language</strong> tri razy, zakaždým na inú úlohu:
+        </p>
+        <ol>
+            <li><strong>Extractive summarization</strong> — vyberie najdôležitejšie vety z originálu,</li>
+            <li><strong>Named Entity Recognition (NER)</strong> — nájde entity a zaradí ich do kategórií,</li>
+            <li><strong>Key phrase extraction</strong> — vytiahne hlavné témy ako zoznam fráz.</li>
+        </ol>
+        <p>Nie je interaktívny — jeden lineárny beh, výstup do konzoly. Je to čítacia referencia.</p>
+
+        <h2>Rozbor kódu</h2>
+
+        <h3>1. Klient</h3>
+        <pre><code>client = TextAnalyticsClient(
+    endpoint=endpoint,
+    credential=AzureKeyCredential(key),
+)</code></pre>
+        <p>
+            Endpoint + kľúč zo zdroja <em>Language</em> (resp. multi-service AI Services zdroja) v Azure portáli.
+            <code>AzureKeyCredential</code> je štandardná trieda pre autentifikáciu kľúčom naprieč Azure SDK.
+        </p>
+
+        <h3>2. Vstup je vždy zoznam dokumentov</h3>
+        <pre><code>documents = [SAMPLE_TEXT]</code></pre>
+        <p>
+            Všetky metódy berú <strong>zoznam</strong> dokumentov, aj keď posielaš jeden. Služba je navrhnutá
+            na dávkové spracovanie — jedno volanie môže obsahovať viacero dokumentov a výsledky prídu v rovnakom poradí.
+        </p>
+
+        <h3>3. Sumarizácia — dlho bežiaca operácia</h3>
+        <pre><code>poller = client.begin_extract_summary(documents)
+for result in poller.result():
+    for sentence in sorted(result.sentences, key=lambda s: s.offset):
+        print(f"  - {sentence.text}")</code></pre>
+        <p>
+            Prefix <code>begin_</code> v Azure SDK vždy znamená <strong>long-running operation</strong>: metóda hneď
+            vráti <em>poller</em>, volanie <code>.result()</code> blokuje, kým služba neskončí.
+        </p>
+        <p>
+            Vety prídu <strong>zoradené podľa dôležitosti</strong> (rank score). Skript ich preto pred výpisom preradí
+            podľa <code>offset</code>, teda podľa pozície v pôvodnom texte, aby súhrn čítal prirodzene.
+        </p>
+
+        <h3>4. NER — synchrónne volanie</h3>
+        <pre><code>for result in client.recognize_entities(documents):
+    for entity in result.entities:
+        print(f"{entity.text} ({entity.category}, confidence {entity.confidence_score:.2f})")</code></pre>
+        <p>
+            Každá entita má <code>text</code>, <code>category</code> (napr. <em>Organization</em>, <em>Location</em>,
+            <em>Person</em>, <em>DateTime</em>, <em>Quantity</em>), voliteľne <code>subcategory</code> a
+            <code>confidence_score</code> od 0 do 1.
+        </p>
+        <p>Na vzorovom texte sa nájde napr. <em>Contoso Travel</em> (Organization), <em>Seattle</em> (Location),
+            <em>last March</em> (DateTime), <em>Maria Gonzalez</em> (Person), <em>forty percent</em> (Quantity).
+        </p>
+
+        <h3>5. Kľúčové frázy</h3>
+        <pre><code>for result in client.extract_key_phrases(documents):
+    for phrase in result.key_phrases:
+        print(f"  - {phrase}")</code></pre>
+        <p>Vráti holý zoznam fráz bez skóre a bez kategórie — na rýchle pochopenie, o čom text je.</p>
+
+        <h3>6. Ošetrenie chýb</h3>
+        <p>
+            Každý výsledok sa kontroluje cez <code>result.is_error</code> — pri dávke totiž môže zlyhať jeden dokument
+            a ostatné prejdú. Celé volanie je navyše obalené v <code>except AzureError</code> pre chyby spojenia
+            a autentifikácie.
+        </p>
+
+        <h2>Konfigurácia</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Premenná</th>
+                    <th>Význam</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>AZURE_LANGUAGE_ENDPOINT</code></td>
+                    <td>napr. <code>https://&lt;zdroj&gt;.cognitiveservices.azure.com/</code></td>
+                </tr>
+                <tr>
+                    <td><code>AZURE_LANGUAGE_KEY</code></td>
+                    <td>kľúč zo sekcie <em>Keys and Endpoint</em></td>
+                </tr>
+            </tbody>
+        </table>
+        <p>Závislosti: <code>azure-ai-textanalytics</code>, <code>python-dotenv</code>.</p>
+
+        <div class="box exam">
+            <strong class="label">Čo z toho treba na skúšku</strong>
+            <p>Domény: <em>Identify AI workloads</em> („Describe common text analysis techniques“) a
+                <em>Implement AI solutions for text and speech by using Foundry</em> („Build a lightweight application
+                that includes text analysis“).
+            </p>
+            <ul>
+                <li><strong>Extractive vs. abstractive summarization.</strong> <em>Extractive</em> vyberá existujúce
+                    vety z originálu — presne to, čo robí <code>begin_extract_summary</code>. <em>Abstractive</em>
+                    generuje nové vety vlastnými slovami. Toto je vďačná otázka.</li>
+                <li><strong>NER vs. entity linking vs. PII.</strong> NER = rozpoznať a kategorizovať.
+                    <em>Entity linking</em> = navyše napojiť na Wikipédiu. <em>PII detection</em> = nájsť a prípadne
+                    začierniť osobné údaje.
+                </li>
+                <li><strong>Key phrase extraction vs. NER.</strong> Kľúčové frázy sú hlavné témy bez kategórií;
+                    entity sú konkrétne pomenované veci s kategóriou a skóre.</li>
+                <li><strong>Confidence score</strong> je hodnota 0–1 vyjadrujúca istotu modelu, nie presnosť. Aplikácie
+                    si typicky nastavia prah a nižšie výsledky ignorujú.</li>
+                <li><strong>Ktorá služba?</strong> Sentiment, NER, kľúčové frázy, detekcia jazyka, sumarizácia, PII,
+                    preklad textu, otázky a odpovede, klasifikácia → <strong>Azure AI Language</strong>.</li>
+            </ul>
+        </div>
+
+        <div class="box">
+            <strong class="label">Ďalšie schopnosti Azure AI Language (v deme nie sú, na skúške áno)</strong>
+            <p>
+                <em>Sentiment analysis</em> (positive / negative / neutral / mixed + opinion mining),
+                <em>language detection</em> (vráti jazyk a ISO kód, pri nezrozumiteľnom vstupe
+                <code>unknown</code>), <em>PII detection &amp; redaction</em>, <em>custom NER</em> a <em>custom text
+                    classification</em> (vlastné natrénované modely), <em>CLU</em> (rozpoznanie zámeru a entít v
+                príkaze), <em>question answering</em> nad vlastnou znalostnou bázou.
+            </p>
+        </div>
+
+        <div class="box ok">
+            <strong class="label">Typická otázka</strong>
+            <p class="q">Potrebuješ zhrnutie dokumentu, ktoré použije <em>pôvodné vety</em> autora. Ktorú techniku
+                zvolíš?
+                <br><span class="a">→ Extractive summarization.</span>
+            </p>
+            <p class="q">Z recenzií chceš zistiť, ktoré produkty a mestá sa spomínajú, aj s typom.
+                <br><span class="a">→ Named Entity Recognition.</span>
+            </p>
+            <p class="q">Čo znamená prefix <code>begin_</code> v metóde SDK?
+                <br><span class="a">→ Dlho bežiacu operáciu; vracia poller, na výsledok sa čaká cez
+                    <code>.result()</code>.</span>
+            </p>
+        </div>
+
+        <h2>Cvičné otázky</h2>
+        <p class="quiz-hint">Odpoveď a vysvetlenie odkryješ kliknutím na „Ukázať odpoveď“.</p>
+        <ol class="quiz">
+
+            <li>
+                <p class="qtext">Potrebuješ zhrnutie dlhého dokumentu, ktoré použije <strong>pôvodné vety</strong>
+                    autora bez preformulovania. Akú techniku zvolíš?</p>
+                <ul class="choices">
+                    <li><b>A.</b> Abstractive summarization</li>
+                    <li><b>B.</b> Extractive summarization</li>
+                    <li><b>C.</b> Key phrase extraction</li>
+                    <li><b>D.</b> Named Entity Recognition</li>
+                </ul>
+                <details>
+                    <summary>Ukázať odpoveď</summary>
+                    <p><span class="correct">B.</span> Extractive vyberá existujúce vety a zoradí ich podľa dôležitosti.
+                        Abstractive generuje <em>nové</em> vety vlastnými slovami. Toto je jedna z najčastejších otázok
+                        z analýzy textu.</p>
+                </details>
+            </li>
+
+            <li>
+                <p class="qtext">Z tisícok recenzií chceš zistiť, ktoré <strong>firmy, mestá a osoby</strong> sa v nich
+                    spomínajú, vrátane typu každej položky. Ktorá schopnosť to rieši?</p>
+                <ul class="choices">
+                    <li><b>A.</b> Key phrase extraction</li>
+                    <li><b>B.</b> Sentiment analysis</li>
+                    <li><b>C.</b> Named Entity Recognition</li>
+                    <li><b>D.</b> Language detection</li>
+                </ul>
+                <details>
+                    <summary>Ukázať odpoveď</summary>
+                    <p><span class="correct">C.</span> NER vracia text entity, <em>kategóriu</em> (Person,
+                        Organization, Location, DateTime, Quantity…) a confidence score. Kľúčové frázy kategóriu nemajú.
+                    </p>
+                </details>
+            </li>
+
+            <li>
+                <p class="qtext">Aký je rozdiel medzi key phrase extraction a NER?</p>
+                <ul class="choices">
+                    <li><b>A.</b> Žiadny, ide o synonymá.</li>
+                    <li><b>B.</b> Kľúčové frázy vracajú hlavné témy bez kategórií; NER vracia pomenované entity
+                        s kategóriou a skóre.</li>
+                    <li><b>C.</b> Kľúčové frázy fungujú len v angličtine.</li>
+                    <li><b>D.</b> NER funguje len nad dokumentmi, nie nad vetami.</li>
+                </ul>
+                <details>
+                    <summary>Ukázať odpoveď</summary>
+                    <p><span class="correct">B.</span> Kľúčové frázy odpovedajú na „o čom to je“, NER na „ktoré
+                        konkrétne pomenované veci sa tu vyskytujú a akého sú typu“.</p>
+                </details>
+            </li>
+
+            <li>
+                <p class="qtext">Čo vyjadruje <code>confidence_score</code> pri entite?</p>
+                <ul class="choices">
+                    <li><b>A.</b> Presnosť modelu v percentách.</li>
+                    <li><b>B.</b> Mieru istoty modelu pre tento konkrétny výsledok, v rozsahu 0 až 1.</li>
+                    <li><b>C.</b> Počet výskytov entity v texte.</li>
+                    <li><b>D.</b> Poradie dôležitosti entity.</li>
+                </ul>
+                <details>
+                    <summary>Ukázať odpoveď</summary>
+                    <p><span class="correct">B.</span> Nie je to garantovaná presnosť. Aplikácie si zvyčajne nastavia
+                        prah a výsledky pod ním ignorujú alebo posielajú na ľudskú kontrolu.</p>
+                </details>
+            </li>
+
+            <li>
+                <p class="qtext">Pred spracovaním potrebuješ zistiť, v akom jazyku je prichádzajúci text. Ktorá
+                    schopnosť Azure AI Language to rieši a čo vráti pri nezrozumiteľnom vstupe?</p>
+                <ul class="choices">
+                    <li><b>A.</b> Language detection; pri nezrozumiteľnom vstupe vráti <code>unknown</code>.</li>
+                    <li><b>B.</b> Translation; vráti prázdny reťazec.</li>
+                    <li><b>C.</b> NER; vráti kategóriu <code>Language</code>.</li>
+                    <li><b>D.</b> Sentiment analysis; vráti <code>neutral</code>.</li>
+                </ul>
+                <details>
+                    <summary>Ukázať odpoveď</summary>
+                    <p><span class="correct">A.</span> Language detection vracia názov jazyka, ISO kód a skóre; pri
+                        vstupe, ktorý sa nedá určiť, vráti <code>unknown</code>.</p>
+                </details>
+            </li>
+
+            <li>
+                <p class="qtext">Recenzia obsahuje „obsluha bola skvelá, ale jedlo hrozné“. Aké skóre vráti sentiment
+                    analysis pre celý dokument?</p>
+                <ul class="choices">
+                    <li><b>A.</b> Positive</li>
+                    <li><b>B.</b> Negative</li>
+                    <li><b>C.</b> Mixed</li>
+                    <li><b>D.</b> Neutral</li>
+                </ul>
+                <details>
+                    <summary>Ukázať odpoveď</summary>
+                    <p><span class="correct">C — mixed.</span> Dokument obsahuje pozitívne aj negatívne vety. Ktorý
+                        aspekt je hodnotený ako, zistí <em>opinion mining</em> (aspect-based sentiment).</p>
+                </details>
+            </li>
+
+            <li>
+                <p class="qtext">Pred uložením prepisov hovorov do archívu treba odstrániť mená, rodné čísla a čísla
+                    kariet. Čo použiješ?</p>
+                <ul class="choices">
+                    <li><b>A.</b> Key phrase extraction</li>
+                    <li><b>B.</b> PII detection a redaction</li>
+                    <li><b>C.</b> Entity linking</li>
+                    <li><b>D.</b> Summarization</li>
+                </ul>
+                <details>
+                    <summary>Ukázať odpoveď</summary>
+                    <p><span class="correct">B.</span> PII detection nájde osobné údaje a vie vrátiť aj verziu textu
+                        s ich začiernením. Ide o priamu aplikáciu princípu <em>privacy and security</em>.</p>
+                </details>
+            </li>
+
+            <li>
+                <p class="qtext">Firma potrebuje rozpoznávať vlastné typy entít špecifické pre jej odbor, ktoré
+                    štandardný model nepozná. Aké riešenie?</p>
+                <ul class="choices">
+                    <li><b>A.</b> Custom NER s vlastnými označenými trénovacími dátami.</li>
+                    <li><b>B.</b> Zvýšiť confidence threshold.</li>
+                    <li><b>C.</b> Použiť entity linking.</li>
+                    <li><b>D.</b> Poslať text viackrát.</li>
+                </ul>
+                <details>
+                    <summary>Ukázať odpoveď</summary>
+                    <p><span class="correct">A.</span> Pri vlastných kategóriách je potrebný custom model. Obdobou pre
+                        celé dokumenty je <em>custom text classification</em>.</p>
+                </details>
+            </li>
+
+            <li>
+                <p class="qtext">Prečo skript pred výpisom súhrnu vety preraďuje podľa <code>offset</code>?</p>
+                <ul class="choices">
+                    <li><b>A.</b> Služba vracia vety v náhodnom poradí.</li>
+                    <li><b>B.</b> Služba ich vracia zoradené podľa dôležitosti, nie podľa pozície v texte.</li>
+                    <li><b>C.</b> Aby sa odstránili duplicity.</li>
+                    <li><b>D.</b> Kvôli kódovaniu znakov.</li>
+                </ul>
+                <details>
+                    <summary>Ukázať odpoveď</summary>
+                    <p><span class="correct">B.</span> Vety prídu s rank skóre. Preradenie podľa pozície v origináli
+                        zabezpečí, že súhrn číta prirodzene.</p>
+                </details>
+            </li>
+
+            <li>
+                <p class="qtext">Metóda <code>begin_extract_summary()</code> nevracia výsledok priamo. Čo vracia a
+                    prečo?</p>
+                <ul class="choices">
+                    <li><b>A.</b> Chybový objekt, pretože chýbajú parametre.</li>
+                    <li><b>B.</b> Poller — ide o dlho bežiacu operáciu, výsledok sa prevezme cez
+                        <code>.result()</code>.</li>
+                    <li><b>C.</b> Zoznam dokumentov na ďalšie spracovanie.</li>
+                    <li><b>D.</b> ID operácie, ktoré treba ručne dopytovať cez REST.</li>
+                </ul>
+                <details>
+                    <summary>Ukázať odpoveď</summary>
+                    <p><span class="correct">B.</span> Prefix <code>begin_</code> je v Azure SDK jednotná konvencia pre
+                        long-running operation. SDK za teba rieši odoslanie aj periodické dopytovanie stavu.</p>
+                </details>
+            </li>
+
+            <li>
+                <p class="qtext">Prečo metódy prijímajú <strong>zoznam</strong> dokumentov, aj keď posielaš jeden?</p>
+                <ul class="choices">
+                    <li><b>A.</b> Je to požiadavka Pythonu.</li>
+                    <li><b>B.</b> Služba je navrhnutá na dávkové spracovanie; výsledky prídu v rovnakom poradí ako
+                        vstupy.</li>
+                    <li><b>C.</b> Zoznam sa používa na verzovanie požiadavky.</li>
+                    <li><b>D.</b> Kvôli šifrovaniu prenosu.</li>
+                </ul>
+                <details>
+                    <summary>Ukázať odpoveď</summary>
+                    <p><span class="correct">B.</span> Preto sa aj pri každom výsledku kontroluje
+                        <code>is_error</code> — v dávke môže zlyhať jeden dokument a ostatné prejdú v poriadku.</p>
+                </details>
+            </li>
+
+        </ol>
+
+        <footer class="page"><a href="index.html">← Späť na prehľad</a></footer>
+    </div>
+</body>
+
+</html>

@@ -9,6 +9,10 @@ Demos for my AI-901 course on Udemy. Each lesson has its own subdirectory with a
 
 `config.env` is gitignored — your keys and endpoints stay local.
 
+## Study documentation
+
+[`docs/index.html`](docs/index.html) contains a per-lesson HTML walkthrough of every script, written for AI-901 exam preparation: what the code does line by line, and which exam objectives it maps to. Open it in a browser.
+
 ## [lesson4-2](lesson4-2/) — Chat client for a Foundry model
 
 A simple interactive chat client that talks to a model deployed in Azure AI Foundry (e.g. DeepSeek-V3.2) via the OpenAI-compatible inference endpoint. The conversation history is kept locally and replayed on every turn, so the model sees the full context. Runs until you press Ctrl+C.

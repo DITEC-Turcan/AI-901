@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="sk">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>lesson4-2 — Chat klient k nasadenému modelu | AI-901</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <header class="page">
+        <div class="wrap">
+            <h1>lesson4-2 — Chat klient k nasadenému modelu</h1>
+            <p><code>lesson4-2/chatclient.py</code> — najjednoduchšia možná „lightweight chat client application“.</p>
+        </div>
+    </header>
+
+    <div class="wrap">
+        <nav class="crumbs"><a href="index.html">← Späť na prehľad</a> &nbsp;·&nbsp; <a
+                href="python-pre-csharp.html">Python pre C# programátora</a></nav>
+
+        <h2>Čo skript robí</h2>
+        <p>
+            Otvorí nekonečnú slučku v konzole. Do nej píšeš správy, skript ich posiela <strong>modelu nasadenému
+                v Microsoft Foundry</strong> (napr. DeepSeek-V3.2, GPT-4o, Phi-4) a vypisuje odpoveď. Celá história
+            konverzácie sa drží v pamäti procesu a <strong>posiela sa znovu pri každom volaní</strong>, takže model
+            „si pamätá“, o čom bola reč. Ukončenie cez <kbd>Ctrl+C</kbd>.
+        </p>
+
+        <h2>Tok volania</h2>
+        <pre><code>config.env  →  OpenAI(base_url=endpoint, api_key=key)
+             ↓
+    conversation = [ {system}, {user}, {assistant}, {user}, ... ]
+             ↓
+    client.chat.completions.create(model=..., messages=conversation)
+             ↓
+    response.choices[0].message.content  →  výpis + pridanie do histórie</code></pre>
+
+        <h2>Rozbor kódu</h2>
+
+        <h3>1. Načítanie konfigurácie</h3>
+        <pre><code>CONFIG_FILE = "config.env"
+
+def load_config():
+    if not os.path.exists(CONFIG_FILE):
+        ...sys.exit(1)
+    load_dotenv(CONFIG_FILE)</code></pre>
+        <p>
+            <code>python-dotenv</code> načíta súbor <code>config.env</code> do premenných prostredia. Ide o bežný vzor
+            „nikdy nemaj kľúč v zdrojovom kóde“. Funkcia <code>get_required()</code> potom každú povinnú premennú
+            overí a pri chýbajúcej hodnote skončí s čitateľnou chybou.
+        </p>
+
+        <h3>2. Zostavenie klienta</h3>
+        <pre><code>client = OpenAI(
+    base_url=f"{endpoint}",
+    api_key=api_key,
+)</code></pre>
+        <p>
+            Používa sa <strong>oficiálne OpenAI SDK</strong>, nie žiadna špeciálna Azure knižnica. Funguje to preto, že
+            Foundry vystavuje <strong>OpenAI-kompatibilný inference endpoint</strong> — stačí prepísať
+            <code>base_url</code> na svoj endpoint a <code>api_key</code> na kľúč z Foundry. Ten istý kód by po zmene
+            dvoch reťazcov hovoril s api.openai.com.
+        </p>
+
+        <h3>3. Systémový prompt a história</h3>
+        <pre><code>system_prompt = os.getenv("SYSTEM_PROMPT", "You are a helpful assistant.")
+conversation = [{"role": "system", "content": system_prompt}]</code></pre>
+        <p>
+            Zoznam <code>conversation</code> je zoznam správ s rolami. Prvá je vždy <code>system</code> — definuje
+            správanie, tón a obmedzenia asistenta. Ďalej sa striedajú <code>user</code> a <code>assistant</code>.
+        </p>
+
+        <h3>4. Slučka</h3>
+        <pre><code>conversation.append({"role": "user", "content": user_input})
+
+response = client.chat.completions.create(
+    model=model,
+    messages=conversation,
+)
+assistant_message = response.choices[0].message.content
+conversation.append({"role": "assistant", "content": assistant_message})</code></pre>
+        <p>
+            Odpoveď modelu sa pridá späť do histórie. <code>model=</code> je <strong>názov deploymentu</strong>
+            z Foundry, nie názov rodiny modelu.
+        </p>
+        <p>
+            Ošetrenie chyby robí jednu nenápadnú, ale dôležitú vec: pri zlyhaní volania sa posledná user správa
+            <code>conversation.pop()</code>-ne, aby sa história nezanášala správami, na ktoré nikdy neprišla odpoveď.
+        </p>
+
+        <h2>Konfigurácia</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Premenná</th>
+                    <th>Význam</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>AZURE_FOUNDRY_ENDPOINT</code></td>
+                    <td>URL inference endpointu deploymentu</td>
+                </tr>
+                <tr>
+                    <td><code>AZURE_FOUNDRY_API_KEY</code></td>
+                    <td>kľúč k endpointu</td>
+                </tr>
+                <tr>
+                    <td><code>AZURE_FOUNDRY_MODEL</code></td>
+                    <td>názov deploymentu modelu</td>
+                </tr>
+                <tr>
+                    <td><code>SYSTEM_PROMPT</code></td>
+                    <td>voliteľný — správanie asistenta</td>
+                </tr>
+            </tbody>
+        </table>
+        <p>Závislosti: <code>openai</code>, <code>python-dotenv</code>.</p>
+
+        <div class="box exam">
+            <strong class="label">Čo z toho treba na skúšku</strong>
+            <p>Doména: <em>Implement generative AI apps and agents by using Foundry</em> — konkrétne body
+                „Deploy a model and interact with it“ a „Create a lightweight chat client application by using the
+                Foundry SDK“.</p>
+            <ul>
+                <li><strong>Tri role správ.</strong> <code>system</code> = inštrukcie a osobnosť modelu,
+                    <code>user</code> = vstup človeka, <code>assistant</code> = odpoveď modelu. Toto je najčastejšia
+                    otázka z tejto oblasti.
+                </li>
+                <li><strong>Modely sú bezstavové.</strong> Model si <em>nepamätá nič</em> medzi volaniami. Pamäť
+                    konverzácie vzniká len tým, že klient posiela celú históriu znovu. Preto dlhá konverzácia stojí viac
+                    tokenov a raz narazí na limit kontextového okna.</li>
+                <li><strong>Prompt engineering.</strong> Kvalitu odpovede ovplyvníš hlavne systémovým promptom —
+                    jasná rola, formát výstupu, obmedzenia, prípadne pár príkladov (few-shot).</li>
+                <li><strong>Deployment vs. model.</strong> V API sa uvádza názov <em>deploymentu</em>. Jeden model môže
+                    mať viac deploymentov s rôznymi kvótami.</li>
+                <li><strong>Kompatibilita.</strong> Foundry vystavuje OpenAI-kompatibilné API, preto sa dá použiť
+                    štandardné <code>openai</code> SDK s prepísaným <code>base_url</code>.</li>
+            </ul>
+        </div>
+
+        <div class="box">
+            <strong class="label">Parametre, ktoré sa v deme nepoužívajú, ale skúška ich pozná</strong>
+            <p>
+                <code>temperature</code> (0 = deterministické, vyššie = kreatívnejšie),
+                <code>top_p</code> (nucleus sampling — meniť buď toto alebo temperature, nie oboje),
+                <code>max_tokens</code> (strop dĺžky odpovede),
+                <code>stream=True</code> (odpoveď po tokenoch, lepší pocit z latencie).
+            </p>
+        </div>
+
+        <div class="box ok">
+            <strong class="label">Typická otázka</strong>
+            <p class="q">Používateľ sa spýta „a čo tá predchádzajúca otázka?“ a model netuší, o čom je reč. Prečo?
+                <br><span class="a">→ Aplikácia neposiela históriu konverzácie v poli <code>messages</code>.</span>
+            </p>
+            <p class="q">Kde nastavíš, že asistent má odpovedať len o cestovaní a vždy po slovensky?
+                <br><span class="a">→ V správe s rolou <code>system</code>.</span>
+            </p>
+        </div>
+
+        <h2>Porovnanie s lesson4-4</h2>
+        <p>
+            Toto demo volá <strong>holý model</strong>. <a href="lesson4-4.html">lesson4-4</a> volá
+            <strong>agenta</strong>, ktorý má inštrukcie a nástroje uložené v službe. Rozdiel medzi týmito dvoma
+            prístupmi je samostatná skúšková téma — porovnanie nájdeš na stránke lesson4-4.
+        </p>
+
+        <h2>Cvičné otázky</h2>
+        <p class="quiz-hint">Odpoveď a vysvetlenie odkryješ kliknutím na „Ukázať odpoveď“.</p>
+        <ol class="quiz">
+
+            <li>
+                <p class="qtext">Ktorá rola v poli <code>messages</code> sa používa na určenie správania a tónu
+                    asistenta?</p>
+                <ul class="choices">
+                    <li><b>A.</b> <code>user</code></li>
+                    <li><b>B.</b> <code>assistant</code></li>
+                    <li><b>C.</b> <code>system</code></li>
+                    <li><b>D.</b> <code>tool</code></li>
+                </ul>
+                <details>
+                    <summary>Ukázať odpoveď</summary>
+                    <p><span class="correct">C — <code>system</code>.</span> Systémová správa je prvá v konverzácii
+                        a definuje rolu, tón, formát výstupu a obmedzenia. <code>user</code> je vstup človeka,
+                        <code>assistant</code> odpoveď modelu.</p>
+                </details>
+            </li>
+
+            <li>
+                <p class="qtext">Aplikácia volá model pri každej otázke zvlášť a posiela len poslednú správu
+                    používateľa. Používateľ sa sťažuje, že model si nepamätá predchádzajúcu otázku. Čo je príčina?</p>
+                <ul class="choices">
+                    <li><b>A.</b> Model má príliš malý počet parametrov.</li>
+                    <li><b>B.</b> Aplikácia neposiela históriu konverzácie v poli <code>messages</code>.</li>
+                    <li><b>C.</b> Je nastavená príliš nízka <code>temperature</code>.</li>
+                    <li><b>D.</b> Deployment nemá zapnutú pamäť.</li>
+                </ul>
+                <details>
+                    <summary>Ukázať odpoveď</summary>
+                    <p><span class="correct">B.</span> Modely sú <strong>bezstavové</strong>. Pamäť konverzácie vzniká
+                        výlučne tým, že klient pri každom volaní pošle celú doterajšiu históriu. Žiadne nastavenie
+                        „pamäte“ na deploymente neexistuje.</p>
+                </details>
+            </li>
+
+            <li>
+                <p class="qtext">Čo sa uvádza v parametri <code>model</code> pri volaní chat completions?</p>
+                <ul class="choices">
+                    <li><b>A.</b> Názov rodiny modelu, napr. „GPT“.</li>
+                    <li><b>B.</b> Názov <strong>deploymentu</strong> vytvoreného v Foundry.</li>
+                    <li><b>C.</b> ID predplatného Azure.</li>
+                    <li><b>D.</b> Región, v ktorom je model hostovaný.</li>
+                </ul>
+                <details>
+                    <summary>Ukázať odpoveď</summary>
+                    <p><span class="correct">B.</span> Uvádza sa názov deploymentu. Jeden model môže mať viacero
+                        deploymentov s rôznymi názvami, kvótami a verziami.</p>
+                </details>
+            </li>
+
+            <li>
+                <p class="qtext">Model má generovať čo najpredvídateľnejšie, konzistentné odpovede pre automatizované
+                    spracovanie. Ktorý parameter a akú hodnotu nastavíš?</p>
+                <ul class="choices">
+                    <li><b>A.</b> <code>temperature</code> blízko 0</li>
+                    <li><b>B.</b> <code>temperature</code> blízko 1</li>
+                    <li><b>C.</b> <code>max_tokens</code> na maximum</li>
+                    <li><b>D.</b> <code>stream</code> na <code>True</code></li>
+                </ul>
+                <details>
+                    <summary>Ukázať odpoveď</summary>
+                    <p><span class="correct">A.</span> Nižšia <code>temperature</code> = menej náhodnosti = viac
+                        deterministické odpovede. Vyššia hodnota zvyšuje kreativitu a rozmanitosť.
+                        <code>max_tokens</code> obmedzuje len dĺžku, <code>stream</code> len spôsob doručenia.</p>
+                </details>
+            </li>
+
+            <li>
+                <p class="qtext">Používatelia sa sťažujú, že pri dlhých odpovediach sa dlho nič nedeje. Aká zmena
+                    najviac zlepší vnímanú odozvu bez zmeny modelu?</p>
+                <ul class="choices">
+                    <li><b>A.</b> Znížiť <code>top_p</code>.</li>
+                    <li><b>B.</b> Zapnúť streamovanie odpovede (<code>stream=True</code>).</li>
+                    <li><b>C.</b> Pridať viac systémových správ.</li>
+                    <li><b>D.</b> Zvýšiť <code>temperature</code>.</li>
+                </ul>
+                <details>
+                    <summary>Ukázať odpoveď</summary>
+                    <p><span class="correct">B.</span> Pri streamovaní sa text zobrazuje po tokenoch hneď, ako vznikajú.
+                        Celkový čas sa nezmení, ale používateľ vidí odpoveď takmer okamžite.</p>
+                </details>
+            </li>
+
+            <li>
+                <p class="qtext">Konverzácia s modelom po dlhom čase začne zlyhávať s chybou o prekročení limitu.
+                    Prečo?</p>
+                <ul class="choices">
+                    <li><b>A.</b> Vypršal API kľúč.</li>
+                    <li><b>B.</b> História konverzácie narástla nad veľkosť kontextového okna modelu.</li>
+                    <li><b>C.</b> Model sa automaticky odnasadil.</li>
+                    <li><b>D.</b> Systémový prompt je príliš krátky.</li>
+                </ul>
+                <details>
+                    <summary>Ukázať odpoveď</summary>
+                    <p><span class="correct">B.</span> Keďže sa posiela celá história, počet tokenov rastie s každým
+                        kolom. Riešením je skracovanie histórie (napr. len posledných N správ) alebo jej priebežná
+                        sumarizácia.</p>
+                </details>
+            </li>
+
+            <li>
+                <p class="qtext">Chceš, aby model vracal odpovede vždy vo formáte JSON s konkrétnymi kľúčmi. Kde to
+                    zabezpečíš najjednoduchšie?</p>
+                <ul class="choices">
+                    <li><b>A.</b> Doladením (fine-tuning) modelu.</li>
+                    <li><b>B.</b> V systémovom prompte s popisom formátu a príkladom.</li>
+                    <li><b>C.</b> Nastavením <code>max_tokens</code>.</li>
+                    <li><b>D.</b> Zmenou regiónu deploymentu.</li>
+                </ul>
+                <details>
+                    <summary>Ukázať odpoveď</summary>
+                    <p><span class="correct">B.</span> Prompt engineering je prvá a najlacnejšia voľba. Fine-tuning je
+                        až posledná možnosť, keď prompt a príklady nestačia.</p>
+                </details>
+            </li>
+
+            <li>
+                <p class="qtext">Skript používa knižnicu <code>openai</code>, hoci model beží v Azure. Ako je to možné?
+                </p>
+                <ul class="choices">
+                    <li><b>A.</b> Knižnica sa automaticky pripojí k OpenAI a tá preposiela volanie do Azure.</li>
+                    <li><b>B.</b> Foundry vystavuje OpenAI-kompatibilný endpoint, stačí prepísať
+                        <code>base_url</code> a <code>api_key</code>.</li>
+                    <li><b>C.</b> Ide o chybu, malo by sa použiť iné SDK.</li>
+                    <li><b>D.</b> Funguje to len pre modely od OpenAI, nie pre DeepSeek či Llama.</li>
+                </ul>
+                <details>
+                    <summary>Ukázať odpoveď</summary>
+                    <p><span class="correct">B.</span> Inference endpoint v Foundry hovorí OpenAI-kompatibilným
+                        protokolom aj pre modely iných poskytovateľov, takže rovnaký klient obslúži DeepSeek, Llama
+                        aj Phi.</p>
+                </details>
+            </li>
+
+            <li>
+                <p class="qtext">Kde je v tomto riešení uložený API kľúč a prečo to tak je? <span class="multi">Vyber
+                        najlepšie odôvodnenie.</span></p>
+                <ul class="choices">
+                    <li><b>A.</b> Priamo v zdrojovom kóde — je to najrýchlejšie.</li>
+                    <li><b>B.</b> V súbore <code>config.env</code>, ktorý je mimo verzovania, aby sa tajomstvo
+                        nedostalo do repozitára.</li>
+                    <li><b>C.</b> V databáze aplikácie.</li>
+                    <li><b>D.</b> Kľúč nie je potrebný.</li>
+                </ul>
+                <details>
+                    <summary>Ukázať odpoveď</summary>
+                    <p><span class="correct">B.</span> Toto je princíp <em>privacy and security</em> zo zodpovednej AI.
+                        Ešte lepšie riešenie je nepoužiť kľúč vôbec a autentifikovať sa cez Microsoft Entra ID —
+                        pozri <a href="lesson4-4.html">lesson4-4</a>.</p>
+                </details>
+            </li>
+
+        </ol>
+
+        <footer class="page"><a href="index.html">← Späť na prehľad</a></footer>
+    </div>
+</body>
+
+</html>

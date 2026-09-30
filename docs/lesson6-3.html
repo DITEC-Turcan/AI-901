@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="sk">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>lesson6-3 — Computer vision | AI-901</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <header class="page">
+        <div class="wrap">
+            <h1>lesson6-3 — Vision: popis, detekcia objektov a OCR</h1>
+            <p><code>lesson6-3/vision.py</code> — tri schopnosti Azure AI Vision na troch lokálnych obrázkoch.</p>
+        </div>
+    </header>
+
+    <div class="wrap">
+        <nav class="crumbs"><a href="index.html">← Späť na prehľad</a> &nbsp;·&nbsp; <a
+                href="python-pre-csharp.html">Python pre C# programátora</a></nav>
+
+        <h2>Čo skript robí</h2>
+        <p>
+            Načíta tri obrázky ležiace vedľa skriptu a na každom spustí inú vizuálnu schopnosť:
+        </p>
+        <table>
+            <thead>
+                <tr>
+                    <th>Súbor</th>
+                    <th>Visual feature</th>
+                    <th>Výstup</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>example1.png</code></td>
+                    <td><code>CAPTION</code> + <code>TAGS</code></td>
+                    <td>jedna veta popisujúca obrázok + top 5 tagov, oboje so skóre</td>
+                </tr>
+                <tr>
+                    <td><code>example2.png</code></td>
+                    <td><code>OBJECTS</code></td>
+                    <td>zoznam objektov s názvom, skóre a bounding boxom</td>
+                </tr>
+                <tr>
+                    <td><code>example3.png</code></td>
+                    <td><code>READ</code></td>
+                    <td>text nájdený v obrázku (OCR), po riadkoch</td>
+                </tr>
+            </tbody>
+        </table>
+        <p>Obrázky nie sú v repozitári — treba doplniť vlastné s týmito názvami.</p>
+
+        <h2>Rozbor kódu</h2>
+
+        <h3>1. Klient</h3>
+        <pre><code>client = ImageAnalysisClient(
+    endpoint=endpoint,
+    credential=AzureKeyCredential(key),
+)</code></pre>
+        <p>Jeden klient obslúži všetky tri úlohy. Ide o <strong>Image Analysis 4.0</strong> API.</p>
+
+        <h3>2. Jedna metóda, prepínač je <code>visual_features</code></h3>
+        <pre><code>result = client.analyze(
+    image_data=image,                       # bajty lokálneho súboru
+    visual_features=[VisualFeatures.CAPTION, VisualFeatures.TAGS],
+)</code></pre>
+        <p>
+            Toto je jadro celého dema. Vždy sa volá tá istá metóda <code>analyze()</code>; čo sa vlastne stane,
+            určuje zoznam <code>visual_features</code>. Dá sa ich vyžiadať viac naraz v jednom volaní — každá vyplní
+            svoju vlastnosť výsledku (<code>result.caption</code>, <code>result.tags</code>, <code>result.objects</code>,
+            <code>result.read</code>, …). Nevyžiadané vlastnosti zostanú <code>None</code>, preto sa v kóde všade
+            kontrolujú.
+        </p>
+        <p>
+            Pre obrázok z internetu existuje varianta <code>analyze_from_url(image_url=...)</code> namiesto
+            <code>image_data</code>.
+        </p>
+
+        <h3>3. Popis a tagy</h3>
+        <pre><code>print(f"It looks like: {result.caption.text} (confidence {result.caption.confidence:.2f})")
+for tag in result.tags.list[:5]:
+    print(f"  - {tag.name} (confidence {tag.confidence:.2f})")</code></pre>
+        <p>
+            <strong>Caption</strong> je jedna veta v ľudskej reči popisujúca celú scénu („a dog sitting on a
+            couch“). <strong>Tags</strong> sú slová opisujúce objekty, prostredie a činnosti na obrázku, zoradené podľa
+            skóre. Skript vypíše len prvých päť.
+        </p>
+
+        <h3>4. Detekcia objektov a bounding boxy</h3>
+        <pre><code>for obj in result.objects.list:
+    name = obj.tags[0].name
+    confidence = obj.tags[0].confidence
+    box = obj.bounding_box
+    print(f"{name} ({confidence:.2f}) at x={box.x}, y={box.y}, "
+          f"width={box.width}, height={box.height}")</code></pre>
+        <p>
+            Rozdiel oproti tagom: detekcia objektov vracia aj <strong>polohu</strong>. <code>bounding_box</code> má
+            štyri čísla — <code>x</code>, <code>y</code> (ľavý horný roh) a <code>width</code>, <code>height</code>
+            v pixeloch. Vďaka tomu sa dá do obrázka vykresliť rámček.
+        </p>
+
+        <h3>5. OCR cez <code>READ</code></h3>
+        <pre><code>for block in result.read.blocks:
+    for line in block.lines:
+        print(f"  {line.text}")</code></pre>
+        <p>
+            Výsledok má hierarchiu <strong>blocks → lines → words</strong>. Skript vypisuje úroveň riadkov; každé
+            slovo má navyše vlastné skóre a polygón polohy. Feature <code>READ</code> je nástupca staršieho OCR API
+            a zvláda tlačený aj písaný text.
+        </p>
+
+        <h2>Konfigurácia</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Premenná</th>
+                    <th>Význam</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>AZURE_VISION_ENDPOINT</code></td>
+                    <td>endpoint Vision / AI Services zdroja</td>
+                </tr>
+                <tr>
+                    <td><code>AZURE_VISION_KEY</code></td>
+                    <td>kľúč zo sekcie <em>Keys and Endpoint</em></td>
+                </tr>
+            </tbody>
+        </table>
+        <p>Závislosti: <code>azure-ai-vision-imageanalysis</code>, <code>python-dotenv</code>.</p>
+
+        <div class="box exam">
+            <strong class="label">Čo z toho treba na skúšku</strong>
+            <p>Domény: <em>Identify AI workloads</em> („features and capabilities of computer vision“) a
+                <em>Implement AI solutions with computer vision … by using Foundry</em> („Build a lightweight
+                application that includes vision capabilities“).</p>
+            <ul>
+                <li><strong>Rozlíš štyri úlohy</strong> — toto je najčastejší typ otázky z tejto oblasti:
+                    <ul>
+                        <li><em>Image classification</em> — jedna kategória pre celý obrázok.</li>
+                        <li><em>Object detection</em> — čo <strong>a kde</strong>, s bounding boxom.</li>
+                        <li><em>Semantic segmentation</em> — klasifikácia na úrovni jednotlivých pixelov.</li>
+                        <li><em>OCR</em> — čítanie textu z obrázka.</li>
+                    </ul>
+                </li>
+                <li><strong>Tagy vs. detekcia objektov.</strong> Tagy povedia, že na obrázku <em>je</em> pes. Detekcia
+                    navyše povie <em>kde</em> a koľko psov. Ak otázka spomína súradnice alebo počítanie výskytov,
+                    odpoveď je detekcia objektov.</li>
+                <li><strong>Caption vs. dense captions.</strong> Caption = jedna veta pre celý obrázok; dense captions =
+                    samostatný popis pre každú oblasť.</li>
+                <li><strong>Prebuilt vs. custom.</strong> Toto demo používa hotové modely. Pre vlastné kategórie
+                    (napr. typy výrobkov na linke) sa použije <em>custom image classification</em> alebo <em>custom
+                        object detection</em> s vlastnými označenými dátami.</li>
+                <li><strong>Face vs. Vision.</strong> Rozpoznávanie a porovnávanie tvárí rieši samostatná služba
+                    <em>Azure AI Face</em>, ktorá má navyše obmedzený prístup kvôli zodpovednej AI. Image Analysis
+                    vie tváre len nájsť.
+                </li>
+                <li><strong>OCR vs. Content Understanding / Document Intelligence.</strong> OCR vráti <em>text</em>.
+                    Ak potrebuješ <em>štruktúrované polia</em> (číslo faktúry, dátum, suma), ide o extrakciu informácií
+                    — pozri <a href="lesson7-4.html">lesson7-4</a>.</li>
+            </ul>
+        </div>
+
+        <div class="box ok">
+            <strong class="label">Typická otázka</strong>
+            <p class="q">Treba spočítať, koľko áut je na zábere z parkoviska, a zvýrazniť ich.
+                <br><span class="a">→ Object detection (bounding boxy).</span>
+            </p>
+            <p class="q">Treba len zistiť, či fotka zobrazuje pláž alebo hory.
+                <br><span class="a">→ Image classification.</span>
+            </p>
+            <p class="q">Treba prečítať evidenčné číslo z fotky auta.
+                <br><span class="a">→ OCR / feature <code>READ</code>.</span>
+            </p>
+            <p class="q">Treba automaticky vygenerovať alt text pre obrázky na webe (inkluzívnosť).
+                <br><span class="a">→ Caption.</span>
+            </p>
+        </div>
+
+        <h2>Cvičné otázky</h2>
+        <p class="quiz-hint">Odpoveď a vysvetlenie odkryješ kliknutím na „Ukázať odpoveď“.</p>
+        <ol class="quiz">
+
+            <li>
+                <p class="qtext">Treba spočítať autá na zábere z parkoviska a v obrázku ich zvýrazniť rámčekom. Ktorá
+                    úloha počítačového videnia to je?</p>
+                <ul class="choices">
+                    <li><b>A.</b> Image classification</li>
+                    <li><b>B.</b> Object detection</li>
+                    <li><b>C.</b> Semantic segmentation</li>
+                    <li><b>D.</b> OCR</li>
+                </ul>
+                <details>
+                    <summary>Ukázať odpoveď</summary>
+                    <p><span class="correct">B.</span> Detekcia objektov vracia <em>čo aj kde</em> — bounding box so
+                        súradnicami <code>x</code>, <code>y</code>, <code>width</code>, <code>height</code>. Ak otázka
+                        spomína súradnice, rámčeky alebo počítanie výskytov, odpoveď je vždy detekcia objektov.</p>
+                </details>
+            </li>
+
+            <li>
+                <p class="qtext">Stačí ti zistiť, či fotografia zobrazuje pláž, hory alebo mesto — jedna kategória na
+                    celý obrázok.</p>
+                <ul class="choices">
+                    <li><b>A.</b> Image classification</li>
+                    <li><b>B.</b> Object detection</li>
+                    <li><b>C.</b> Facial recognition</li>
+                    <li><b>D.</b> OCR</li>
+                </ul>
+                <details>
+                    <summary>Ukázať odpoveď</summary>
+                    <p><span class="correct">A.</span> Klasifikácia priradí obrázku ako celku jednu (alebo viac)
+                        kategórií, bez informácie o polohe.</p>
+                </details>
+            </li>
+
+            <li>
+                <p class="qtext">Ktorá úloha priraďuje kategóriu <strong>každému jednotlivému pixelu</strong>?</p>
+                <ul class="choices">
+                    <li><b>A.</b> Object detection</li>
+                    <li><b>B.</b> Image classification</li>
+                    <li><b>C.</b> Semantic segmentation</li>
+                    <li><b>D.</b> Tagging</li>
+                </ul>
+                <details>
+                    <summary>Ukázať odpoveď</summary>
+                    <p><span class="correct">C.</span> Segmentácia je najjemnejšia granularita — používa sa napr.
+                        v medicínskom zobrazovaní alebo pri autonómnom riadení.</p>
+                </details>
+            </li>
+
+            <li>
+                <p class="qtext">Aký je rozdiel medzi <code>TAGS</code> a <code>OBJECTS</code>?</p>
+                <ul class="choices">
+                    <li><b>A.</b> Žiadny, len iný formát výstupu.</li>
+                    <li><b>B.</b> Tagy hovoria, <em>čo</em> na obrázku je; detekcia objektov navyše <em>kde</em> a
+                        koľkokrát.</li>
+                    <li><b>C.</b> Tagy fungujú len na fotografie, objekty len na kresby.</li>
+                    <li><b>D.</b> Objekty nevracajú confidence score.</li>
+                </ul>
+                <details>
+                    <summary>Ukázať odpoveď</summary>
+                    <p><span class="correct">B.</span> Tag „dog“ znamená „na obrázku je pes“. Detekcia vráti bounding
+                        box pre každého psa zvlášť, takže sa dajú spočítať aj lokalizovať.</p>
+                </details>
+            </li>
+
+            <li>
+                <p class="qtext">Treba prečítať evidenčné číslo z fotografie auta. Ktorý visual feature?</p>
+                <ul class="choices">
+                    <li><b>A.</b> <code>CAPTION</code></li>
+                    <li><b>B.</b> <code>OBJECTS</code></li>
+                    <li><b>C.</b> <code>READ</code></li>
+                    <li><b>D.</b> <code>SMART_CROPS</code></li>
+                </ul>
+                <details>
+                    <summary>Ukázať odpoveď</summary>
+                    <p><span class="correct">C.</span> <code>READ</code> je OCR — nástupca staršieho OCR API, zvláda
+                        tlačený aj rukou písaný text. Výsledok má hierarchiu blocks → lines → words.</p>
+                </details>
+            </li>
+
+            <li>
+                <p class="qtext">Pre lepšiu prístupnosť webu treba ku každému obrázku automaticky vygenerovať alt text
+                    — jednu vetu popisujúcu scénu.</p>
+                <ul class="choices">
+                    <li><b>A.</b> <code>TAGS</code></li>
+                    <li><b>B.</b> <code>CAPTION</code></li>
+                    <li><b>C.</b> <code>READ</code></li>
+                    <li><b>D.</b> <code>PEOPLE</code></li>
+                </ul>
+                <details>
+                    <summary>Ukázať odpoveď</summary>
+                    <p><span class="correct">B.</span> Caption je jedna veta v ľudskej reči pre celý obrázok. Dense
+                        captions by vrátili samostatný popis pre každú oblasť. Toto je zároveň učebnicový príklad
+                        princípu <em>inclusiveness</em> zo zodpovednej AI.</p>
+                </details>
+            </li>
+
+            <li>
+                <p class="qtext">Výrobná linka potrebuje rozpoznávať vlastné typy súčiastok, ktoré prebuilt model
+                    nepozná. Čo použiješ?</p>
+                <ul class="choices">
+                    <li><b>A.</b> Custom image classification alebo custom object detection s vlastnými označenými
+                        dátami.</li>
+                    <li><b>B.</b> Zvýšenie rozlíšenia obrázkov.</li>
+                    <li><b>C.</b> Feature <code>READ</code>.</li>
+                    <li><b>D.</b> Azure AI Face.</li>
+                </ul>
+                <details>
+                    <summary>Ukázať odpoveď</summary>
+                    <p><span class="correct">A.</span> Prebuilt modely poznajú bežné objekty. Pre doménovo špecifické
+                        kategórie treba vlastný model natrénovaný na označených dátach.</p>
+                </details>
+            </li>
+
+            <li>
+                <p class="qtext">Aplikácia má porovnávať tváre a overovať totožnosť osôb. Ktorá služba?</p>
+                <ul class="choices">
+                    <li><b>A.</b> Azure AI Vision — Image Analysis</li>
+                    <li><b>B.</b> Azure AI Face</li>
+                    <li><b>C.</b> Azure AI Language</li>
+                    <li><b>D.</b> Azure AI Content Understanding</li>
+                </ul>
+                <details>
+                    <summary>Ukázať odpoveď</summary>
+                    <p><span class="correct">B.</span> Image Analysis vie tváre len <em>nájsť</em>. Rozpoznávanie
+                        a porovnávanie identity rieši samostatná služba Face, ktorá má navyše <strong>obmedzený
+                            prístup</strong> (Limited Access) kvôli princípom zodpovednej AI.</p>
+                </details>
+            </li>
+
+            <li>
+                <p class="qtext">Koľko volaní <code>analyze()</code> treba, ak chceš z jedného obrázka naraz caption,
+                    tagy aj text?</p>
+                <ul class="choices">
+                    <li><b>A.</b> Tri — jedno na každú schopnosť.</li>
+                    <li><b>B.</b> Jedno, so všetkými troma hodnotami v <code>visual_features</code>.</li>
+                    <li><b>C.</b> Dve — OCR musí byť vždy samostatne.</li>
+                    <li><b>D.</b> Závisí od veľkosti obrázka.</li>
+                </ul>
+                <details>
+                    <summary>Ukázať odpoveď</summary>
+                    <p><span class="correct">B.</span> <code>visual_features</code> je zoznam. Každá vyžiadaná
+                        schopnosť vyplní svoju vlastnosť výsledku; nevyžiadané zostanú <code>None</code>, preto ich
+                        kód kontroluje.</p>
+                </details>
+            </li>
+
+            <li>
+                <p class="qtext">Obrázky sú uložené v Azure Blob Storage a dostupné cez URL. Ako sa zmení volanie?</p>
+                <ul class="choices">
+                    <li><b>A.</b> Nijako, <code>image_data</code> prijíma aj URL.</li>
+                    <li><b>B.</b> Použije sa <code>analyze_from_url(image_url=...)</code>.</li>
+                    <li><b>C.</b> Obrázky treba najprv skonvertovať na base64 reťazec.</li>
+                    <li><b>D.</b> Treba iný typ zdroja v Azure.</li>
+                </ul>
+                <details>
+                    <summary>Ukázať odpoveď</summary>
+                    <p><span class="correct">B.</span> SDK ponúka dve varianty: bajty lokálneho súboru
+                        (<code>image_data</code>) alebo verejne dostupnú URL.</p>
+                </details>
+            </li>
+
+            <li>
+                <p class="qtext">Z naskenovaných faktúr potrebuješ získať <strong>číslo faktúry, dátum splatnosti
+                        a celkovú sumu</strong> ako pomenované polia. Stačí OCR?</p>
+                <ul class="choices">
+                    <li><b>A.</b> Áno, <code>READ</code> vráti polia priamo.</li>
+                    <li><b>B.</b> Nie — OCR vráti len text; na štruktúrované polia treba Content Understanding.</li>
+                    <li><b>C.</b> Nie, treba custom image classification.</li>
+                    <li><b>D.</b> Áno, ale len pri PDF súboroch.</li>
+                </ul>
+                <details>
+                    <summary>Ukázať odpoveď</summary>
+                    <p><span class="correct">B.</span> Toto je hranica medzi dvoma službami a častý zdroj zámeny —
+                        pozri <a href="lesson7-4.html">lesson7-4</a>.</p>
+                </details>
+            </li>
+
+        </ol>
+
+        <footer class="page"><a href="index.html">← Späť na prehľad</a></footer>
+    </div>
+</body>
+
+</html>

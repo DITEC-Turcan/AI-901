@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="sk">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Python pre C# programátora | AI-901</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <header class="page">
+        <div class="wrap">
+            <h1>Python pre C# programátora</h1>
+            <p>Každá konštrukcia, ktorá sa vyskytuje v týchto šiestich skriptoch, preložená do C#.</p>
+        </div>
+    </header>
+
+    <div class="wrap">
+        <nav class="crumbs"><a href="index.html">← Späť na prehľad</a></nav>
+
+        <div class="box exam">
+            <strong class="label">Prečo to riešiť</strong>
+            <p>
+                Oficiálny study guide AI-901 uvádza v profile kandidáta „knowledge of Python coding syntax and
+                programming techniques“. Ukážky kódu na skúške sú v Pythone. Nemusíš vedieť písať, musíš vedieť
+                <strong>čítať</strong> — a hlavne vedieť ukázať prstom na riadok, ktorý robí to, na čo sa otázka pýta.
+            </p>
+        </div>
+
+        <h2>Dobrá správa: Azure SDK vyzerá v oboch jazykoch takmer rovnako</h2>
+        <p>
+            Microsoft udržiava naprieč jazykmi rovnaké návrhové zásady SDK. Ak poznáš <code>Azure.AI.*</code> balíky
+            z NuGetu, ide hlavne o prepis názvov.
+        </p>
+        <table>
+            <thead>
+                <tr>
+                    <th>Python (pip)</th>
+                    <th>C# (NuGet)</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>azure-ai-textanalytics</code></td>
+                    <td><code>Azure.AI.TextAnalytics</code></td>
+                </tr>
+                <tr>
+                    <td><code>azure-ai-vision-imageanalysis</code></td>
+                    <td><code>Azure.AI.Vision.ImageAnalysis</code></td>
+                </tr>
+                <tr>
+                    <td><code>azure-ai-projects</code></td>
+                    <td><code>Azure.AI.Projects</code></td>
+                </tr>
+                <tr>
+                    <td><code>azure-identity</code> → <code>DefaultAzureCredential()</code></td>
+                    <td><code>Azure.Identity</code> → <code>new DefaultAzureCredential()</code></td>
+                </tr>
+                <tr>
+                    <td><code>AzureKeyCredential(key)</code></td>
+                    <td><code>new AzureKeyCredential(key)</code></td>
+                </tr>
+            </tbody>
+        </table>
+        <p>
+            Hlavný rozdiel v pomenovaní: Python používa <code>snake_case</code> pre metódy aj vlastnosti
+            (<code>confidence_score</code>, <code>begin_extract_summary</code>), C# <code>PascalCase</code>
+            (<code>ConfidenceScore</code>, <code>StartExtractSummary</code>).
+        </p>
+
+        <h2>Základy syntaxe</h2>
+
+        <h3>Namiesto zložených zátvoriek sa odsadzuje</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Python</th>
+                    <th>C#</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>
+                        <pre><code>def get_required(key: str) -&gt; str:
+    value = os.getenv(key)
+    if not value:
+        print("chyba")
+        sys.exit(1)
+    return value</code></pre>
+                    </td>
+                    <td>
+                        <pre><code>static string GetRequired(string key)
+{
+    var value = Environment
+        .GetEnvironmentVariable(key);
+    if (string.IsNullOrEmpty(value))
+    {
+        Console.WriteLine("chyba");
+        Environment.Exit(1);
+    }
+    return value;
+}</code></pre>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+        <p>
+            Dvojbodka otvára blok, odsadenie ho vymedzuje. Žiadne bodkočiarky. <code>: str</code> a <code>-&gt; str</code>
+            sú <strong>type hints</strong> — nepovinné a runtime ich <em>nevynucuje</em>, slúžia len nástrojom
+            a čitateľovi.
+        </p>
+
+        <h3>Vstupný bod programu</h3>
+        <pre><code>if __name__ == "__main__":
+    main()</code></pre>
+        <p>
+            Ekvivalent <code>static void Main()</code>. Python spustí celý súbor zhora nadol; táto podmienka je pravdivá
+            len vtedy, keď sa súbor spúšťa priamo, nie keď ho niekto importuje ako knižnicu. V C# to netreba riešiť,
+            lebo tam je vstupný bod daný typom projektu.
+        </p>
+
+        <h3>Reťazce</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Python</th>
+                    <th>C#</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>f"model: {model}"</code></td>
+                    <td><code>$"model: {model}"</code> — interpolácia</td>
+                </tr>
+                <tr>
+                    <td><code>f"{score:.2f}"</code></td>
+                    <td><code>$"{score:F2}"</code> — formát na 2 desatinné</td>
+                </tr>
+                <tr>
+                    <td><code>endpoint.rstrip("/")</code></td>
+                    <td><code>endpoint.TrimEnd('/')</code></td>
+                </tr>
+                <tr>
+                    <td><code>user_input.strip()</code></td>
+                    <td><code>input.Trim()</code></td>
+                </tr>
+                <tr>
+                    <td>úvodzovky <code>"</code> aj <code>'</code> sú rovnocenné</td>
+                    <td><code>"</code> reťazec, <code>'</code> char</td>
+                </tr>
+            </tbody>
+        </table>
+        <p>
+            Zátvorkami sa dajú zlepiť susedné literály bez operátora — presne to robí
+            <code>SAMPLE_TEXT = ("veta1 " "veta2 " "veta3")</code> v lesson5-1. Nie je to tuple, je to jeden reťazec.
+        </p>
+
+        <h3>Konzola</h3>
+        <table>
+            <tbody>
+                <tr>
+                    <td><code>print(x)</code></td>
+                    <td><code>Console.WriteLine(x)</code></td>
+                </tr>
+                <tr>
+                    <td><code>print(x, end="", flush=True)</code></td>
+                    <td><code>Console.Write(x)</code> + <code>Out.Flush()</code></td>
+                </tr>
+                <tr>
+                    <td><code>input("You: ")</code></td>
+                    <td><code>Console.Write("You: ")</code> + <code>Console.ReadLine()</code></td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h2>Kolekcie — tu je najväčší rozdiel</h2>
+
+        <h3>List = <code>List&lt;T&gt;</code></h3>
+        <table>
+            <tbody>
+                <tr>
+                    <td><code>conversation = []</code></td>
+                    <td><code>var conversation = new List&lt;object&gt;();</code></td>
+                </tr>
+                <tr>
+                    <td><code>conversation.append(x)</code></td>
+                    <td><code>conversation.Add(x)</code></td>
+                </tr>
+                <tr>
+                    <td><code>conversation.pop()</code></td>
+                    <td><code>RemoveAt(Count - 1)</code> — odoberie <strong>posledný</strong></td>
+                </tr>
+                <tr>
+                    <td><code>result.tags.list[:5]</code></td>
+                    <td><code>Tags.Take(5)</code> — slicing</td>
+                </tr>
+                <tr>
+                    <td><code>if not documents:</code></td>
+                    <td><code>if (documents.Count == 0)</code></td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h3>Dict = <code>Dictionary&lt;string, object&gt;</code>, ale používa sa ako anonymný objekt</h3>
+        <pre><code>{"role": "user", "content": user_input}</code></pre>
+        <p>
+            V C# by si to napísal ako <code>new Dictionary&lt;string, object&gt; { ["role"] = "user", … }</code> alebo
+            ako anonymný typ <code>new { role = "user", content = userInput }</code>. Python medzi týmto nerozlišuje —
+            JSON payload pre REST API sa jednoducho skladá zo slovníkov a listov. Preto v lesson4-2 vyzerá história
+            konverzácie ako obyčajný zoznam slovníkov, a nie ako zoznam nejakej triedy <code>ChatMessage</code>.
+        </p>
+        <pre><code>fields.get("Summary")          # C#: TryGetValue, vráti None keď kľúč chýba
+content.get("kind", "")        # C#: GetValueOrDefault(key, "")</code></pre>
+        <p><code>.get()</code> <strong>nehádže výnimku</strong> pri chýbajúcom kľúči — na rozdiel od
+            <code>dict["kľúč"]</code>.</p>
+
+        <h3>Tuple = <code>ValueTuple</code></h3>
+        <pre><code>def build_client() -&gt; tuple[OpenAI, str]:
+    ...
+    return client, model
+
+client, model = build_client()      # dekonštrukcia</code></pre>
+        <p>Úplne to isté ako <code>(OpenAI, string) BuildClient()</code> a <code>var (client, model) = …</code>.</p>
+
+        <h2>Riadenie behu</h2>
+
+        <h3>Cykly</h3>
+        <table>
+            <tbody>
+                <tr>
+                    <td><code>for entity in result.entities:</code></td>
+                    <td><code>foreach (var entity in result.Entities)</code></td>
+                </tr>
+                <tr>
+                    <td><code>for name, field in fields.items():</code></td>
+                    <td><code>foreach (var (name, field) in fields)</code></td>
+                </tr>
+                <tr>
+                    <td><code>while True:</code></td>
+                    <td><code>while (true)</code></td>
+                </tr>
+                <tr>
+                    <td><code>continue</code> / <code>break</code></td>
+                    <td>identické</td>
+                </tr>
+            </tbody>
+        </table>
+        <p>Python <strong>nemá</strong> klasický <code>for (int i = 0; …)</code>. Vždy sa iteruje nad kolekciou.</p>
+
+        <h3>Výnimky</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Python</th>
+                    <th>C#</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>
+                        <pre><code>try:
+    ...
+except AzureError as e:
+    print(f"chyba: {e}")
+finally:
+    recognizer.stop()</code></pre>
+                    </td>
+                    <td>
+                        <pre><code>try
+{
+    ...
+}
+catch (RequestFailedException e)
+{
+    Console.WriteLine($"chyba: {e}");
+}
+finally
+{
+    recognizer.Stop();
+}</code></pre>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+        <p>
+            <code>except (KeyboardInterrupt, EOFError):</code> odchytáva viac typov naraz — v C# by to boli dva
+            <code>catch</code> bloky alebo filter <code>when</code>. <code>KeyboardInterrupt</code> je Ctrl+C.
+        </p>
+
+        <h3>Zdroje: <code>with</code> = <code>using</code></h3>
+        <table>
+            <tbody>
+                <tr>
+                    <td>
+                        <pre><code>with open(path, "rb") as f:
+    return f.read()</code></pre>
+                    </td>
+                    <td>
+                        <pre><code>return File.ReadAllBytes(path);
+// resp. using var fs = File.OpenRead(path);</code></pre>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+        <p><code>"rb"</code> = read binary, vracia <code>bytes</code> (≈ <code>byte[]</code>). Bez <code>b</code> by
+            to bol text.</p>
+
+        <h2>Argumenty metód — na toto pozor</h2>
+
+        <h3>Pomenované argumenty sú v Pythone norma</h3>
+        <pre><code>client.analyze(
+    image_data=image,
+    visual_features=[VisualFeatures.CAPTION, VisualFeatures.TAGS],
+)</code></pre>
+        <p>
+            To isté ako named arguments v C#: <code>client.Analyze(imageData: image, visualFeatures: […])</code>.
+            V C# sú skôr výnimka, v Pythone sa používajú takmer vždy.
+        </p>
+
+        <h3><code>**kwargs</code> — slovník rozbalený na argumenty</h3>
+        <pre><code>kwargs = {"input": [...], "extra_body": agent_reference}
+if previous_response_id:
+    kwargs["previous_response_id"] = previous_response_id
+
+response = openai_client.responses.create(**kwargs)</code></pre>
+        <p>
+            Dve hviezdičky pred slovníkom znamenajú „každý kľúč použi ako názov parametra“. V C# priamy ekvivalent
+            <strong>neexistuje</strong> — musel by si buď mať overload, alebo nastaviť vlastnosť options objektu
+            podmienene. Zmysel tohto vzoru: parameter <code>previous_response_id</code> sa pošle
+            <em>len pri druhom a ďalšom kole konverzácie</em>.
+        </p>
+
+        <h3>Predvolené hodnoty</h3>
+        <pre><code>os.getenv("SYSTEM_PROMPT", "You are a helpful assistant.")</code></pre>
+        <p>Druhý argument je fallback, keď premenná neexistuje. Ako <code>?? "default"</code>.</p>
+
+        <h2>Lambdy a LINQ-ové vzory</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Python</th>
+                    <th>C#</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>sorted(result.sentences, key=lambda s: s.offset)</code></td>
+                    <td><code>sentences.OrderBy(s =&gt; s.Offset)</code></td>
+                </tr>
+                <tr>
+                    <td><code>list[:5]</code></td>
+                    <td><code>.Take(5)</code></td>
+                </tr>
+                <tr>
+                    <td><code>[x for x in items if x.ok]</code></td>
+                    <td><code>items.Where(x =&gt; x.Ok)</code> (v týchto skriptoch sa nevyskytuje, ale je bežné)</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h2>Truthiness — najčastejší zdroj nedorozumenia</h2>
+        <div class="box warn">
+            <p>
+                Python berie za „nepravdivé“ nielen <code>False</code> a <code>None</code>, ale aj
+                <strong>prázdny reťazec, prázdny zoznam, prázdny slovník a nulu</strong>.
+            </p>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Python</th>
+                        <th>Čo to naozaj testuje</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>if not value:</code></td>
+                        <td>je <code>None</code> <em>alebo</em> prázdny reťazec → <code>IsNullOrEmpty</code></td>
+                    </tr>
+                    <tr>
+                        <td><code>if not user_input: continue</code></td>
+                        <td>preskoč prázdny riadok</td>
+                    </tr>
+                    <tr>
+                        <td><code>if not result.objects.list:</code></td>
+                        <td>zoznam je prázdny → <code>.Count == 0</code></td>
+                    </tr>
+                    <tr>
+                        <td><code>fields = result.contents[0].fields or {}</code></td>
+                        <td><code>?? new Dictionary&lt;…&gt;()</code>, ale zachytí aj prázdny slovník</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <p>
+            <code>None</code> = <code>null</code>. <code>if field.value not in (None, "", [], {})</code> v lesson7-4
+            teda znamená „hodnota nie je null ani prázdna“ — testuje sa členstvo v tuple možností, čo je skratka za
+            reťaz <code>||</code> porovnaní.
+        </p>
+
+        <h2>Typy a pretypovanie</h2>
+        <table>
+            <tbody>
+                <tr>
+                    <td><code>isinstance(content, AudioVisualContent)</code></td>
+                    <td><code>content is AudioVisualContent</code></td>
+                </tr>
+                <tr>
+                    <td><code>str(content.get("kind", ""))</code></td>
+                    <td><code>Convert.ToString(...)</code></td>
+                </tr>
+            </tbody>
+        </table>
+        <p>
+            Python je dynamicky typovaný: objekt sa dá použiť ako slovník <em>aj</em> ako trieda, ak to SDK podporuje.
+            Preto lesson7-4 kontroluje typ obidvoma spôsobmi — v C# by taká dvojitá kontrola nedávala zmysel.
+        </p>
+
+        <h2>Udalosti: <code>.connect()</code> namiesto <code>+=</code></h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Python (lesson5-3)</th>
+                    <th>C#</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>
+                        <pre><code>def on_recognized(evt):
+    print(evt.result.text)
+
+recognizer.recognized.connect(on_recognized)</code></pre>
+                    </td>
+                    <td>
+                        <pre><code>recognizer.Recognized += (s, e) =&gt;
+    Console.WriteLine(e.Result.Text);</code></pre>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+        <p>
+            <code>on_recognized</code> je <strong>lokálna funkcia definovaná vnútri <code>main()</code></strong> —
+            presne ako local function v C#, vrátane toho, že vidí premenné z obklopujúcej metódy (closure).
+            Funkcia sa odovzdáva bez zátvoriek (<code>connect(on_recognized)</code>), so zátvorkami by sa zavolala.
+        </p>
+
+        <h2>Asynchrónnosť a long-running operácie</h2>
+        <p>
+            Všetkých šesť skriptov je <strong>synchrónnych</strong> — žiadne <code>async</code>/<code>await</code>.
+            Vlákno jednoducho čaká. V .NET by si písal <code>await client.AnalyzeAsync(...)</code>.
+        </p>
+        <table>
+            <thead>
+                <tr>
+                    <th>Python</th>
+                    <th>C#</th>
+                    <th>Čo sa deje</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>poller = client.begin_extract_summary(docs)</code><br><code>poller.result()</code></td>
+                    <td><code>Operation&lt;T&gt; op = await client.StartAnalyzeAsync(...)</code><br>
+                        <code>await op.WaitForCompletionAsync()</code></td>
+                    <td>dlho bežiaca operácia: odošli → dopytuj sa na stav → prevezmi výsledok</td>
+                </tr>
+                <tr>
+                    <td><code>recognizer.start_continuous_recognition()</code></td>
+                    <td><code>await recognizer.StartContinuousRecognitionAsync()</code></td>
+                    <td>neblokujúce, výsledky chodia cez udalosti</td>
+                </tr>
+            </tbody>
+        </table>
+        <div class="box exam">
+            <strong class="label">Na skúšku</strong>
+            <p>
+                Prefix <code>begin_</code> v Python SDK == prefix <code>Start</code> + typ <code>Operation&lt;T&gt;</code>
+                v .NET SDK == <strong>long-running operation</strong>. Toto je jednotná konvencia Azure SDK naprieč
+                jazykmi a skúška sa na ňu pýta.
+            </p>
+        </div>
+
+        <h2>Balíčky a prostredie</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Python</th>
+                    <th>.NET</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>requirements.txt</code></td>
+                    <td><code>PackageReference</code> v <code>.csproj</code></td>
+                </tr>
+                <tr>
+                    <td><code>pip install -r requirements.txt</code></td>
+                    <td><code>dotnet restore</code></td>
+                </tr>
+                <tr>
+                    <td><code>import os</code> / <code>from dotenv import load_dotenv</code></td>
+                    <td><code>using System;</code> — ale Python import je <em>runtime</em> operácia</td>
+                </tr>
+                <tr>
+                    <td><code>config.env</code> + <code>python-dotenv</code></td>
+                    <td><code>appsettings.json</code> / user secrets</td>
+                </tr>
+                <tr>
+                    <td>virtuálne prostredie (<code>python -m venv .venv</code>)</td>
+                    <td>obdoba izolácie balíkov na úrovni projektu</td>
+                </tr>
+            </tbody>
+        </table>
+        <div class="box warn">
+            <p>
+                Bez virtuálneho prostredia sa balíky inštalujú globálne a šesť lekcií si môže navzájom rozbiť verzie.
+                Odporúčam v každom adresári:
+            </p>
+            <pre><code>python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt</code></pre>
+        </div>
+
+        <h2>Kompletný príklad: lesson4-2 v C#</h2>
+        <p>Ten istý program, aby si videl kostru naraz.</p>
+        <pre><code>var conversation = new List&lt;object&gt;
+{
+    new { role = "system", content = systemPrompt }
+};
+
+while (true)
+{
+    Console.Write("You: ");
+    var userInput = Console.ReadLine()?.Trim();
+    if (string.IsNullOrEmpty(userInput)) continue;
+
+    conversation.Add(new { role = "user", content = userInput });
+
+    var response = await client.GetChatCompletionsAsync(model, conversation);
+    var message = response.Choices[0].Message.Content;
+
+    conversation.Add(new { role = "assistant", content = message });
+    Console.WriteLine($"\nAssistant: {message}\n");
+}</code></pre>
+        <p>
+            Logika je identická. Rozdiel je len v zápise — a presne to je to, čo si na skúške potrebuješ vedieť
+            v hlave preložiť.
+        </p>
+
+        <h2>Cvičné otázky na čítanie kódu</h2>
+        <p class="quiz-hint">Presne ten typ úrovne, aký sa očakáva na AI-901 — nie písať, ale rozumieť.</p>
+        <ol class="quiz">
+
+            <li>
+                <p class="qtext">Čo vráti <code>os.getenv("SYSTEM_PROMPT", "You are a helpful assistant.")</code>,
+                    ak premenná <code>SYSTEM_PROMPT</code> neexistuje?</p>
+                <ul class="choices">
+                    <li><b>A.</b> <code>None</code></li>
+                    <li><b>B.</b> Prázdny reťazec</li>
+                    <li><b>C.</b> <code>"You are a helpful assistant."</code></li>
+                    <li><b>D.</b> Vyhodí výnimku</li>
+                </ul>
+                <details>
+                    <summary>Ukázať odpoveď</summary>
+                    <p><span class="correct">C.</span> Druhý argument je predvolená hodnota — ako
+                        <code>?? "default"</code> v C#.</p>
+                </details>
+            </li>
+
+            <li>
+                <p class="qtext">Podmienka <code>if not value:</code> je pravdivá pre ktoré hodnoty?
+                    <span class="multi">Vyber všetky správne.</span></p>
+                <ul class="choices">
+                    <li><b>A.</b> <code>None</code></li>
+                    <li><b>B.</b> <code>""</code></li>
+                    <li><b>C.</b> <code>"abc"</code></li>
+                    <li><b>D.</b> <code>[]</code></li>
+                </ul>
+                <details>
+                    <summary>Ukázať odpoveď</summary>
+                    <p><span class="correct">A, B a D.</span> Python považuje za nepravdivé aj prázdny reťazec,
+                        prázdny zoznam, prázdny slovník a nulu. Ekvivalent <code>if not value</code> pre reťazec je
+                        <code>string.IsNullOrEmpty(value)</code>, nie <code>value == null</code>.</p>
+                </details>
+            </li>
+
+            <li>
+                <p class="qtext">Čo robí <code>[{"role": "user", "content": text}]</code>?</p>
+                <ul class="choices">
+                    <li><b>A.</b> Vytvorí triedu s dvoma vlastnosťami.</li>
+                    <li><b>B.</b> Vytvorí zoznam s jedným slovníkom — obdoba
+                        <code>new List&lt;object&gt; { new { role = "user", content = text } }</code>.</li>
+                    <li><b>C.</b> Vytvorí dva samostatné zoznamy.</li>
+                    <li><b>D.</b> Ide o tuple dvoch hodnôt.</li>
+                </ul>
+                <details>
+                    <summary>Ukázať odpoveď</summary>
+                    <p><span class="correct">B.</span> Hranaté zátvorky = zoznam, zložené = slovník. JSON payload sa
+                        v Pythone skladá práve z týchto dvoch stavebných prvkov.</p>
+                </details>
+            </li>
+
+            <li>
+                <p class="qtext">Čo znamenajú dve hviezdičky v <code>responses.create(**kwargs)</code>?</p>
+                <ul class="choices">
+                    <li><b>A.</b> Násobenie.</li>
+                    <li><b>B.</b> Rozbalenie slovníka na pomenované argumenty metódy.</li>
+                    <li><b>C.</b> Odovzdanie odkazom (ako <code>ref</code>).</li>
+                    <li><b>D.</b> Asynchrónne volanie.</li>
+                </ul>
+                <details>
+                    <summary>Ukázať odpoveď</summary>
+                    <p><span class="correct">B.</span> Každý kľúč slovníka sa použije ako názov parametra. V lesson4-4
+                        to slúži na to, aby sa <code>previous_response_id</code> poslal len od druhého kola
+                        konverzácie. Priamy ekvivalent v C# neexistuje.</p>
+                </details>
+            </li>
+
+            <li>
+                <p class="qtext">Na čo slúži <code>with open(path, "rb") as f:</code>?</p>
+                <ul class="choices">
+                    <li><b>A.</b> Otvorí súbor na čítanie v binárnom režime a po opustení bloku ho automaticky
+                        zavrie.</li>
+                    <li><b>B.</b> Vytvorí nový súbor.</li>
+                    <li><b>C.</b> Zašifruje obsah súboru.</li>
+                    <li><b>D.</b> Načíta súbor asynchrónne.</li>
+                </ul>
+                <details>
+                    <summary>Ukázať odpoveď</summary>
+                    <p><span class="correct">A.</span> <code>with</code> == <code>using</code>. <code>"rb"</code> =
+                        read binary — vracia <code>bytes</code> (≈ <code>byte[]</code>), čo je presne to, čo SDK
+                        očakáva pri odosielaní obrázkov a dokumentov.</p>
+                </details>
+            </li>
+
+            <li>
+                <p class="qtext"><code>sorted(result.sentences, key=lambda s: s.offset)</code> — čo je ekvivalent
+                    v C#?</p>
+                <ul class="choices">
+                    <li><b>A.</b> <code>sentences.Where(s =&gt; s.Offset)</code></li>
+                    <li><b>B.</b> <code>sentences.OrderBy(s =&gt; s.Offset)</code></li>
+                    <li><b>C.</b> <code>sentences.Select(s =&gt; s.Offset)</code></li>
+                    <li><b>D.</b> <code>sentences.GroupBy(s =&gt; s.Offset)</code></li>
+                </ul>
+                <details>
+                    <summary>Ukázať odpoveď</summary>
+                    <p><span class="correct">B.</span> <code>key=</code> je selektor triedenia,
+                        <code>lambda s: s.offset</code> je <code>s =&gt; s.Offset</code>.</p>
+                </details>
+            </li>
+
+            <li>
+                <p class="qtext">Prečo sa v <code>recognizer.recognized.connect(on_recognized)</code> uvádza funkcia
+                    <strong>bez zátvoriek</strong>?</p>
+                <ul class="choices">
+                    <li><b>A.</b> Je to preklep.</li>
+                    <li><b>B.</b> Odovzdáva sa <em>odkaz na funkciu</em>; so zátvorkami by sa funkcia hneď zavolala.
+                    </li>
+                    <li><b>C.</b> Funkcia nemá parametre.</li>
+                    <li><b>D.</b> Zátvorky sa v Pythone nikdy nepíšu.</li>
+                </ul>
+                <details>
+                    <summary>Ukázať odpoveď</summary>
+                    <p><span class="correct">B.</span> Rovnaký princíp ako <code>recognizer.Recognized +=
+                            OnRecognized;</code> v C# — priraduje sa handler, nie výsledok jeho volania.</p>
+                </details>
+            </li>
+
+            <li>
+                <p class="qtext">Čo robí <code>result.tags.list[:5]</code>?</p>
+                <ul class="choices">
+                    <li><b>A.</b> Vráti päť náhodných prvkov.</li>
+                    <li><b>B.</b> Vráti prvých päť prvkov — ako <code>.Take(5)</code>.</li>
+                    <li><b>C.</b> Vráti prvok s indexom 5.</li>
+                    <li><b>D.</b> Odstráni prvých päť prvkov.</li>
+                </ul>
+                <details>
+                    <summary>Ukázať odpoveď</summary>
+                    <p><span class="correct">B.</span> Slicing <code>[start:stop]</code>; vynechaný
+                        <code>start</code> znamená od začiatku. <code>[-1]</code> by bol posledný prvok.</p>
+                </details>
+            </li>
+
+            <li>
+                <p class="qtext">Prečo je na konci skriptu <code>if __name__ == "__main__": main()</code>?</p>
+                <ul class="choices">
+                    <li><b>A.</b> Je to povinná syntax každého Python súboru.</li>
+                    <li><b>B.</b> Zabezpečí, že sa <code>main()</code> spustí len pri priamom spustení súboru, nie pri
+                        jeho importe.</li>
+                    <li><b>C.</b> Definuje názov programu.</li>
+                    <li><b>D.</b> Spustí program asynchrónne.</li>
+                </ul>
+                <details>
+                    <summary>Ukázať odpoveď</summary>
+                    <p><span class="correct">B.</span> Ekvivalent <code>static void Main()</code>. Python inak vykoná
+                        celý súbor zhora nadol — aj pri importe ako knižnica.</p>
+                </details>
+            </li>
+
+            <li>
+                <p class="qtext">V kóde je <code>fields = result.contents[0].fields or {}</code>. Prečo?</p>
+                <ul class="choices">
+                    <li><b>A.</b> Aby sa vytvoril prázdny slovník, keď <code>fields</code> je <code>None</code> alebo
+                        prázdne — a následná iterácia nespadla.</li>
+                    <li><b>B.</b> Aby sa slovník vymazal.</li>
+                    <li><b>C.</b> Aby sa polia zlúčili s prázdnym slovníkom.</li>
+                    <li><b>D.</b> Ide o logický OR nad boolean hodnotami.</li>
+                </ul>
+                <details>
+                    <summary>Ukázať odpoveď</summary>
+                    <p><span class="correct">A.</span> Blízke k <code>?? new Dictionary&lt;,&gt;()</code>, ale
+                        v Pythone zachytí aj prázdny slovník, nielen <code>None</code>.</p>
+                </details>
+            </li>
+
+        </ol>
+
+        <footer class="page"><a href="index.html">← Späť na prehľad</a></footer>
+    </div>
+</body>
+
+</html>
